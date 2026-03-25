@@ -7,7 +7,6 @@ const DUCK_IMAGE = "https://raw.githubusercontent.com/twitter/twemoji/master/ass
 const LEVEL_THRESHOLDS = [0, 5000, 25000, 100000, 500000, 2000000, 10000000, 50000000, 250000000];
 const MAX_ENERGY = 2000;
 
-// Магазин: тепер дохід В СЕКУНДУ!
 const SHOP_ITEMS = [
   { id: 1, name: "Стара Кепка", desc: "+1 монета / сек", cost: 5000, income: 1, icon: "🧢" },
   { id: 2, name: "Гітара Бродяги", desc: "+5 монет / сек", cost: 30000, income: 5, icon: "🎸" },
@@ -24,7 +23,7 @@ function App() {
   const [energy, setEnergy] = useState(MAX_ENERGY);
   const [passiveIncome, setPassiveIncome] = useState(0);
   
-  const [activeTab, setActiveTab] = useState('tap');
+  const [activeTab, setActiveTab] = useState('tap'); 
   const [clicks, setClicks] = useState([]);
   
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -34,12 +33,12 @@ function App() {
   const [showDailyModal, setShowDailyModal] = useState(false);
   const [offlineEarned, setOfflineEarned] = useState(0);
   
-  // Святкування рівня
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [justReachedLevel, setJustReachedLevel] = useState(null);
 
   const tg = window.Telegram.WebApp;
   const user = tg.initDataUnsafe?.user;
+  const startParam = tg.initDataUnsafe?.start_param;
 
   useEffect(() => {
     tg.expand();
@@ -49,7 +48,7 @@ function App() {
       if (!user) return;
       try {
         const response = await axios.post(`${SERVER_URL}/user/init`, {
-          telegram_id: user.id, first_name: user.first_name || 'Гравець'
+          telegram_id: user.id, first_name: user.first_name || 'Гравець', referrer_id: startParam || null
         });
         const data = response.data;
         setUserData(data.user);
@@ -66,16 +65,13 @@ function App() {
       } catch (err) { console.error('Помилка сервера'); }
     };
     fetchUser();
-  }, [user]);
+  }, [user, startParam]);
 
-  // 🔥 ЖИВИЙ ТІК: ПАСИВНИЙ ДОХІД ТА ПЕРЕВІРКА РІВНЯ 🔥
   useEffect(() => {
     if (passiveIncome <= 0) return;
     const interval = setInterval(() => {
       setPoints(prev => {
         const newPoints = prev + passiveIncome;
-        
-        // Перевіряємо рівень у фоні
         let calcLevel = 1;
         for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
           if (newPoints >= LEVEL_THRESHOLDS[i]) { calcLevel = i + 1; break; }
@@ -91,14 +87,12 @@ function App() {
           }
           return currentLevel;
         });
-
         return newPoints;
       });
     }, 1000);
     return () => clearInterval(interval);
   }, [passiveIncome]);
 
-  // Відновлення енергії (Повільне: 1 раз на 3 секунди)
   useEffect(() => {
     const interval = setInterval(() => {
       setEnergy(prev => (prev < MAX_ENERGY ? prev + 0.33 : prev));
@@ -108,13 +102,9 @@ function App() {
 
   const handleTouch = async (e) => {
     if (!userData || showLeaderboard || showDailyModal || showLevelUp) return;
-    
     const touches = e.changedTouches;
     let actualTouches = 0;
-
-    for (let i = 0; i < touches.length; i++) {
-      if (energy - actualTouches > 0) actualTouches++;
-    }
+    for (let i = 0; i < touches.length; i++) { if (energy - actualTouches > 0) actualTouches++; }
     if (actualTouches === 0) return;
 
     tg.HapticFeedback.impactOccurred('medium');
@@ -122,33 +112,22 @@ function App() {
     const tapValue = userData.active_boost ? level * 2 : level;
     const totalPointsToAdd = tapValue * actualTouches;
 
-    // Оновлюємо очки та енергію
     setPoints(prev => {
       const newPoints = prev + totalPointsToAdd;
-      
-      // Перевірка рівня від тапу
       let calcLevel = 1;
       for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
         if (newPoints >= LEVEL_THRESHOLDS[i]) { calcLevel = i + 1; break; }
       }
       if (calcLevel > 9) calcLevel = 9;
-      
       setLevel(currentLevel => {
-        if (calcLevel > currentLevel) {
-          setJustReachedLevel(calcLevel);
-          setShowLevelUp(true);
-          tg.HapticFeedback.notificationOccurred('success');
-          return calcLevel;
-        }
+        if (calcLevel > currentLevel) { setJustReachedLevel(calcLevel); setShowLevelUp(true); tg.HapticFeedback.notificationOccurred('success'); return calcLevel; }
         return currentLevel;
       });
-
       return newPoints;
     });
     
     setEnergy(prev => prev - actualTouches);
 
-    // Візуал
     const newClicks = Array.from(touches).slice(0, actualTouches).map(touch => {
       const rect = e.currentTarget.getBoundingClientRect();
       return { id: Date.now() + Math.random(), x: touch.clientX - rect.left, y: touch.clientY - rect.top, val: tapValue };
@@ -159,21 +138,21 @@ function App() {
       setClicks(prev => prev.filter(c => !idsToRemove.includes(c.id)));
     }, 1000);
 
-    // Сервер
     try { await axios.post(`${SERVER_URL}/user/tap`, { telegram_id: userData.telegram_id, count: actualTouches }); } catch (err) {}
   };
 
-  const refillEnergyWithAd = () => {
-    tg.showConfirm("Подивитися відео, щоб миттєво відновити енергію на 100%?", async (agreed) => {
-      if (agreed) {
-        // Тут пізніше буде код AdsGram. Поки що просто симулюємо успіх!
-        tg.HapticFeedback.notificationOccurred('success');
-        try {
-          const res = await axios.post(`${SERVER_URL}/user/refill_energy`, { telegram_id: userData.telegram_id });
-          setEnergy(res.data.energy);
-        } catch (err) {}
-      }
-    });
+  // 🔥 БЕЗКОШТОВНА ЕНЕРГІЯ (ЛІМІТОВАНА) 🔥
+  const useFreeEnergy = async () => {
+    if (userData.free_energy_refills <= 0) {
+      tg.showAlert("Сьогодні ти вже використав усі безкоштовні відновлення!");
+      return;
+    }
+    tg.HapticFeedback.notificationOccurred('success');
+    try {
+      const res = await axios.post(`${SERVER_URL}/user/free_energy`, { telegram_id: userData.telegram_id });
+      setEnergy(res.data.energy);
+      setUserData(prev => ({ ...prev, free_energy_refills: res.data.refills }));
+    } catch (err) {}
   };
 
   const claimDaily = async () => {
@@ -181,6 +160,7 @@ function App() {
     try {
       const response = await axios.post(`${SERVER_URL}/user/daily`, { telegram_id: userData.telegram_id });
       setPoints(Number(response.data.user.season_points));
+      setUserData(response.data.user);
       setShowDailyModal(false);
     } catch (err) { setShowDailyModal(false); }
   };
@@ -189,17 +169,51 @@ function App() {
     if (points < item.cost) { tg.HapticFeedback.notificationOccurred('error'); return; }
     tg.HapticFeedback.notificationOccurred('success');
     try {
-      const response = await axios.post(`${SERVER_URL}/user/buy_upgrade`, { 
-        telegram_id: userData.telegram_id, cost: item.cost, income_increase: item.income 
-      });
+      const response = await axios.post(`${SERVER_URL}/user/buy_upgrade`, { telegram_id: userData.telegram_id, cost: item.cost, income_increase: item.income });
       setPoints(Number(response.data.user.season_points));
       setPassiveIncome(Number(response.data.user.passive_income));
     } catch (err) {}
   };
 
+  const claimTaskTG = async () => {
+    if (userData.task_tg_claimed) return;
+    tg.openTelegramLink('https://t.me/telegram'); // Лінк на канал
+    setTimeout(async () => {
+      try {
+        const response = await axios.post(`${SERVER_URL}/user/claim_task`, { telegram_id: userData.telegram_id, task_type: 'telegram' });
+        setPoints(Number(response.data.user.season_points));
+        setUserData(response.data.user);
+        
+        let calcLevel = 1;
+        for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+          if (response.data.user.season_points >= LEVEL_THRESHOLDS[i]) { calcLevel = i + 1; break; }
+        }
+        if (calcLevel > level) {
+          setJustReachedLevel(calcLevel);
+          setShowLevelUp(true);
+          setLevel(calcLevel);
+        }
+        tg.HapticFeedback.notificationOccurred('success');
+      } catch (err) {}
+    }, 2000);
+  };
+
+  const resetProgress = async () => {
+    tg.showConfirm("УВАГА! Це повністю знищить твій прогрес, монети та рівень. Почати з нуля?", async (agreed) => {
+      if (agreed) {
+        try {
+          const response = await axios.post(`${SERVER_URL}/user/reset`, { telegram_id: userData.telegram_id });
+          setUserData(response.data.user);
+          setPoints(0); setLevel(1); setEnergy(MAX_ENERGY); setPassiveIncome(0);
+          tg.HapticFeedback.notificationOccurred('success');
+          setActiveTab('tap');
+        } catch (err) {}
+      }
+    });
+  };
+
   const openLeaderboard = async () => {
     setShowLeaderboard(true);
-    tg.HapticFeedback.impactOccurred('light');
     try {
       const response = await axios.get(`${SERVER_URL}/leaderboard?telegram_id=${user.id}`);
       setLeaderboardData(response.data.leaderboard);
@@ -222,7 +236,7 @@ function App() {
       {offlineEarned > 0 && (
         <div className="absolute top-20 left-4 right-4 bg-green-500 text-white p-4 rounded-2xl shadow-2xl z-50 text-center animate-fade-in border-2 border-green-400">
           <p className="font-black text-xl mb-1">Ти спав, а бізнес працював!</p>
-          <p className="font-bold text-lg">+ {offlineEarned} 💰 пасивного доходу</p>
+          <p className="font-bold text-lg">+ {offlineEarned} 💰</p>
         </div>
       )}
 
@@ -238,7 +252,6 @@ function App() {
         
         <div className="bg-gray-800/80 backdrop-blur-sm rounded-3xl p-4 shadow-2xl border border-gray-700/50">
           <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-1">Баланс</p>
-          {/* Math.floor щоб уникнути дробів при відмальовці, якщо вони є */}
           <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-200 to-yellow-500 drop-shadow-lg">{Math.floor(points)}</p>
         </div>
       </div>
@@ -257,14 +270,8 @@ function App() {
 
             <div className="w-full bg-gray-800/90 backdrop-blur-md p-4 rounded-3xl border border-gray-700/50 shrink-0 shadow-xl">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-bold text-blue-300 flex items-center gap-1">⚡ Енергія</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-blue-300">{Math.floor(energy)} / {MAX_ENERGY}</span>
-                  {/* 🔥 КНОПКА ВІДЕО-РЕКЛАМИ 🔥 */}
-                  <button onClick={refillEnergyWithAd} className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-md active:scale-95 shadow-md">
-                    📺 Відновити
-                  </button>
-                </div>
+                <span className="text-xs font-bold text-blue-300">⚡ Енергія</span>
+                <span className="text-xs font-bold text-blue-300">{Math.floor(energy)} / {MAX_ENERGY}</span>
               </div>
               <div className="w-full bg-gray-900 rounded-full h-2 mb-4 overflow-hidden border border-gray-950">
                 <div className="bg-blue-500 h-full transition-all duration-300 rounded-full" style={{ width: `${energyPercent}%` }}></div>
@@ -284,7 +291,7 @@ function App() {
         {/* ВКЛАДКА: МАГАЗИН */}
         {activeTab === 'shop' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
-            <h2 className="text-2xl font-black text-yellow-400 mb-4 text-center">🛒 Магазин Бізнесів</h2>
+            <h2 className="text-2xl font-black text-yellow-400 mb-4 text-center">🛒 Бізнеси</h2>
             <div className="space-y-4">
               {SHOP_ITEMS.map(item => (
                 <div key={item.id} className="bg-gray-800 border border-gray-700 p-4 rounded-2xl flex items-center justify-between">
@@ -292,11 +299,11 @@ function App() {
                     <div className="text-4xl">{item.icon}</div>
                     <div>
                       <h3 className="font-bold text-lg">{item.name}</h3>
-                      <p className="text-sm text-green-400">{item.desc}</p>
+                      <p className="text-xs text-green-400">{item.desc}</p>
                     </div>
                   </div>
-                  <button onClick={() => buyUpgrade(item)} className={`font-bold py-2 px-4 rounded-xl transition-all active:scale-95 ${points >= item.cost ? 'bg-yellow-500 text-gray-900 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'bg-gray-700 text-gray-500'}`}>
-                    {item.cost}
+                  <button onClick={() => buyUpgrade(item)} className={`font-bold py-2 px-3 text-sm rounded-xl transition-all active:scale-95 ${points >= item.cost ? 'bg-yellow-500 text-gray-900' : 'bg-gray-700 text-gray-500'}`}>
+                    {item.cost} 💰
                   </button>
                 </div>
               ))}
@@ -304,51 +311,106 @@ function App() {
           </div>
         )}
 
-        {/* ВКЛАДКА: БУСТИ */}
+        {/* ВКЛАДКА: БУСТИ ТА ЗАВДАННЯ */}
         {activeTab === 'boosts' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
-            <h2 className="text-2xl font-black text-yellow-400 mb-4 text-center">🚀 Бусти</h2>
-            <div className="bg-gray-800 border border-gray-700 p-5 rounded-3xl text-center mb-4 relative overflow-hidden">
-              <div className="text-5xl mb-2 relative z-10">📺</div>
-              <h3 className="font-black text-xl text-white mb-2 relative z-10">Буст "Ракета" x5</h3>
-              <p className="text-sm text-gray-400 mb-4 relative z-10">Подивись рекламу від AdsGram та отримай множник кліків на 5 хвилин!</p>
-              <button className="bg-gradient-to-r from-red-500 to-orange-500 text-white font-black w-full py-4 rounded-xl shadow-[0_0_15px_rgba(239,68,68,0.5)] active:scale-95 transition-all">
-                (Реклама підключається)
-              </button>
+            
+            {/* Секція: Щоденні Бусти */}
+            <h2 className="text-xl font-black text-yellow-400 mb-3 ml-2">🔄 Щоденні Бусти</h2>
+            <div className="space-y-3 mb-8">
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-white">🔋 Відновити енергію</h3>
+                  <p className="text-xs text-gray-400">{userData.free_energy_refills} / 3 доступно сьогодні</p>
+                </div>
+                <button 
+                  onClick={useFreeEnergy} 
+                  disabled={userData.free_energy_refills <= 0}
+                  className={`font-bold py-2 px-4 rounded-xl transition-all ${userData.free_energy_refills > 0 ? 'bg-blue-500 text-white active:scale-95' : 'bg-gray-700 text-gray-500'}`}
+                >
+                  Відновити
+                </button>
+              </div>
+
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-white">🚀 Ракета x5 (5 хв)</h3>
+                  <p className="text-xs text-gray-400">За перегляд реклами</p>
+                </div>
+                <button className="bg-orange-500 text-white font-bold py-2 px-4 rounded-xl active:scale-95">(Незабаром)</button>
+              </div>
             </div>
+
+            {/* Секція: Одноразові Завдання */}
+            <h2 className="text-xl font-black text-yellow-400 mb-3 ml-2">🎯 Одноразові Завдання</h2>
+            <div className="space-y-3">
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold text-white">🤝 Запроси друга</h3>
+                    <p className="text-xs text-yellow-400">+ 50,000 монет тобі!</p>
+                  </div>
+                  <button onClick={() => tg.openTelegramLink(`https://t.me/share/url?url=https://t.me/ТВІЙ_БОТ/play?startapp=${user.id}`)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-xl active:scale-95">Запросити</button>
+                </div>
+                <div className="bg-gray-900/50 p-2 rounded-xl text-xs text-gray-400 text-center">
+                  *Монети зарахуються автоматично, коли друг досягне 3-го рівня (Шукач).
+                </div>
+              </div>
+
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-white">📣 Підписка на канал</h3>
+                  <p className="text-xs text-yellow-400">+ 100,000 монет</p>
+                </div>
+                <button onClick={claimTaskTG} className={`font-bold py-2 px-4 rounded-xl transition-all ${userData.task_tg_claimed ? 'bg-gray-700 text-gray-500' : 'bg-green-500 text-white active:scale-95'}`}>
+                  {userData.task_tg_claimed ? 'Виконано' : 'Виконати'}
+                </button>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ВКЛАДКА: ІНФО */}
+        {activeTab === 'info' && (
+          <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
+            <h2 className="text-2xl font-black text-yellow-400 mb-4 text-center">ℹ️ Інфо та Правила</h2>
+            <div className="bg-gray-800 border border-gray-700 p-5 rounded-3xl text-sm text-gray-300 space-y-4 mb-6">
+              <p><strong className="text-white">1. Чесний рейтинг:</strong> Ми не казино. Нагороди отримують лише ті, хто в ТОП-11 рейтингу наприкінці місяця.</p>
+              <p><strong className="text-white">2. Як заробити:</strong> Тапай, купуй бізнеси для пасивного доходу та виконуй завдання.</p>
+              <p><strong className="text-white">3. Сезон:</strong> Наприкінці місяця рахунки обнуляються для чесного змагання в новому сезоні.</p>
+            </div>
+            
+            <button onClick={resetProgress} className="bg-red-900/30 border border-red-500/50 text-red-500 font-bold py-4 rounded-2xl w-full active:scale-95 transition-all">
+              ⚠️ Скинути мій прогрес (Для тестів)
+            </button>
           </div>
         )}
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 h-[80px] bg-gray-900/95 backdrop-blur-lg border-t border-gray-800 flex justify-around items-center px-1 pb-safe z-40">
-        <button onClick={() => { tg.HapticFeedback.selectionChanged(); setActiveTab('tap'); }} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${activeTab === 'tap' ? 'text-yellow-400' : 'text-gray-500'}`}>
+      {/* НИЖНЯ НАВІГАЦІЯ (4 КНОПКИ) */}
+      <div className="absolute bottom-0 left-0 right-0 h-[80px] bg-gray-900/95 backdrop-blur-lg border-t border-gray-800 grid grid-cols-4 px-1 pb-safe z-40">
+        <button onClick={() => { tg.HapticFeedback.selectionChanged(); setActiveTab('tap'); }} className={`flex flex-col items-center justify-center transition-colors ${activeTab === 'tap' ? 'text-yellow-400' : 'text-gray-500'}`}>
           <span className="text-2xl mb-1">🦆</span><span className="text-[10px] font-bold uppercase">Грай</span>
         </button>
-        <button onClick={() => { tg.HapticFeedback.selectionChanged(); setActiveTab('shop'); }} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${activeTab === 'shop' ? 'text-yellow-400' : 'text-gray-500'}`}>
+        <button onClick={() => { tg.HapticFeedback.selectionChanged(); setActiveTab('shop'); }} className={`flex flex-col items-center justify-center transition-colors ${activeTab === 'shop' ? 'text-yellow-400' : 'text-gray-500'}`}>
           <span className="text-2xl mb-1">🛒</span><span className="text-[10px] font-bold uppercase">Бізнес</span>
         </button>
-        <button onClick={() => { tg.HapticFeedback.selectionChanged(); setActiveTab('boosts'); }} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${activeTab === 'boosts' ? 'text-yellow-400' : 'text-gray-500'}`}>
+        <button onClick={() => { tg.HapticFeedback.selectionChanged(); setActiveTab('boosts'); }} className={`flex flex-col items-center justify-center transition-colors ${activeTab === 'boosts' ? 'text-yellow-400' : 'text-gray-500'}`}>
           <span className="text-2xl mb-1">🚀</span><span className="text-[10px] font-bold uppercase">Бусти</span>
+        </button>
+        <button onClick={() => { tg.HapticFeedback.selectionChanged(); setActiveTab('info'); }} className={`flex flex-col items-center justify-center transition-colors ${activeTab === 'info' ? 'text-yellow-400' : 'text-gray-500'}`}>
+          <span className="text-2xl mb-1">ℹ️</span><span className="text-[10px] font-bold uppercase">Інфо</span>
         </button>
       </div>
 
-      {/* 🔥 НОВЕ: МОДАЛКА ПРИВІТАННЯ З НОВИМ РІВНЕМ 🔥 */}
+      {/* Модалки */}
       {showLevelUp && justReachedLevel && (
         <div className="absolute inset-0 z-[70] bg-gray-950/90 flex flex-col items-center justify-center p-6 animate-fade-in backdrop-blur-lg text-center">
           <div className="text-8xl mb-4 animate-bounce">🎉</div>
-          <h2 className="text-4xl font-black text-white uppercase tracking-widest mb-2 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
-            Новий Рівень!
-          </h2>
-          <p className="text-2xl text-yellow-400 font-bold mb-8">
-            Ти тепер <span className="uppercase text-3xl block mt-2">{levelNames[justReachedLevel - 1]}</span>
-          </p>
-          <p className="text-gray-300 mb-8">Твоя сила тапу збільшилася! Продовжуй в тому ж дусі.</p>
-          <button 
-            onClick={() => setShowLevelUp(false)}
-            className="bg-yellow-500 text-gray-900 font-black text-xl py-4 px-12 rounded-2xl shadow-[0_0_30px_rgba(234,179,8,0.5)] active:scale-95 transition-all w-full"
-          >
-            Продовжити!
-          </button>
+          <h2 className="text-4xl font-black text-white uppercase tracking-widest mb-2">Новий Рівень!</h2>
+          <p className="text-2xl text-yellow-400 font-bold mb-8">Ти тепер <span className="uppercase text-3xl block mt-2">{levelNames[justReachedLevel - 1]}</span></p>
+          <button onClick={() => setShowLevelUp(false)} className="bg-yellow-500 text-gray-900 font-black text-xl py-4 px-12 rounded-2xl w-full">Продовжити!</button>
         </div>
       )}
 
@@ -356,7 +418,7 @@ function App() {
         <div className="absolute inset-0 z-50 bg-gray-950/95 flex flex-col items-center justify-center p-6 animate-fade-in backdrop-blur-md text-center">
           <div className="text-7xl mb-6 animate-bounce">🎁</div>
           <h2 className="text-3xl font-black text-yellow-400 uppercase tracking-widest mb-4">Щоденний бонус!</h2>
-          <button onClick={claimDaily} className="bg-gradient-to-r from-yellow-500 to-orange-500 text-gray-900 font-black text-xl py-4 px-10 rounded-2xl shadow-[0_0_30px_rgba(234,179,8,0.5)] active:scale-95 w-full">Забрати нагороду!</button>
+          <button onClick={claimDaily} className="bg-gradient-to-r from-yellow-500 to-orange-500 text-gray-900 font-black text-xl py-4 px-10 rounded-2xl w-full">Забрати нагороду!</button>
         </div>
       )}
 
