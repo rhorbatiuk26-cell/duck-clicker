@@ -18,7 +18,6 @@ const sequelize = new Sequelize(process.env.DATABASE_URL || 'sqlite::memory:', {
   dialectOptions: process.env.DATABASE_URL ? { ssl: { require: true, rejectUnauthorized: false } } : {}
 });
 
-// 🔥 РОЗШИРЕНА БАЗА ДАНИХ 🔥
 const User = sequelize.define('User', {
   telegram_id: { type: DataTypes.STRING, unique: true, primaryKey: true },
   first_name: { type: DataTypes.STRING, allowNull: false },
@@ -27,10 +26,9 @@ const User = sequelize.define('User', {
   referrer_id: { type: DataTypes.STRING, allowNull: true },
   boost_until: { type: DataTypes.DATE, allowNull: true },
   
-  // Нові колонки
   energy: { type: DataTypes.INTEGER, defaultValue: 2000 },
   last_energy_update: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-  passive_income: { type: DataTypes.INTEGER, defaultValue: 0 }, // Монет на годину
+  passive_income: { type: DataTypes.INTEGER, defaultValue: 0 }, // Тепер це МОНЕТИ В СЕКУНДУ
   last_passive_collect: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   daily_streak: { type: DataTypes.INTEGER, defaultValue: 0 },
   last_daily_claim: { type: DataTypes.DATE, allowNull: true }
@@ -38,34 +36,33 @@ const User = sequelize.define('User', {
 
 sequelize.sync({ alter: true }).then(() => console.log('✅ База даних успішно оновлена!'));
 
-const LEVEL_THRESHOLDS = [0, 1000, 5000, 15000, 40000, 100000, 250000, 600000, 1500000];
+// 🔥 НОВІ ГІГАНТСЬКІ РІВНІ ПРОКАЧКИ (бо монети тепер летять щосекунди) 🔥
+const LEVEL_THRESHOLDS = [0, 5000, 25000, 100000, 500000, 2000000, 10000000, 50000000, 250000000];
 const MAX_ENERGY = 2000;
-const ENERGY_REGEN_PER_SEC = 1; // 1 енергія в секунду
-const MAX_OFFLINE_HOURS = 3; // Максимум 3 години пасивного доходу
+const MAX_OFFLINE_SECONDS = 3 * 60 * 60; // 3 години офлайну
 
-// Допоміжна функція для розрахунку офлайн прогресу
 const calculateOfflineProgress = (user) => {
   const now = new Date();
   
-  // 1. Відновлення енергії
-  const secondsPassed = Math.floor((now - new Date(user.last_energy_update)) / 1000);
-  if (secondsPassed > 0) {
-    user.energy = Math.min(MAX_ENERGY, user.energy + (secondsPassed * ENERGY_REGEN_PER_SEC));
+  // 1. Відновлення енергії (Повільне: 1 енергія кожні 3 секунди)
+  const secondsPassedEnergy = (now - new Date(user.last_energy_update)) / 1000;
+  if (secondsPassedEnergy > 0) {
+    const energyToRecover = Math.floor(secondsPassedEnergy / 3);
+    user.energy = Math.min(MAX_ENERGY, user.energy + energyToRecover);
     user.last_energy_update = now;
   }
 
-  // 2. Збір пасивного доходу (Максимум за 3 години)
+  // 2. Збір пасивного доходу В СЕКУНДУ (Максимум за 3 години)
   let passiveEarned = 0;
   if (user.passive_income > 0) {
-    const hoursPassed = (now - new Date(user.last_passive_collect)) / (1000 * 60 * 60);
-    const cappedHours = Math.min(hoursPassed, MAX_OFFLINE_HOURS);
-    passiveEarned = Math.floor(cappedHours * user.passive_income);
+    const secondsPassedPassive = (now - new Date(user.last_passive_collect)) / 1000;
+    const cappedSeconds = Math.min(secondsPassedPassive, MAX_OFFLINE_SECONDS);
+    passiveEarned = Math.floor(cappedSeconds * user.passive_income);
     
     if (passiveEarned > 0) {
       user.season_points = Number(user.season_points) + passiveEarned;
       user.last_passive_collect = now;
       
-      // Перевірка рівня після пасивного доходу
       let new_level = 1;
       for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
         if (user.season_points >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; }
@@ -74,26 +71,18 @@ const calculateOfflineProgress = (user) => {
     }
   }
 
-  // 3. Перевірка щоденного бонусу (Streak)
+  // 3. Щоденний бонус
   let dailyAvailable = false;
   const lastClaim = user.last_daily_claim ? new Date(user.last_daily_claim) : null;
-  
   if (!lastClaim) {
     dailyAvailable = true;
   } else {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Початок сьогоднішнього дня
-    const lastClaimDay = new Date(lastClaim);
-    lastClaimDay.setHours(0, 0, 0, 0); // Початок дня останнього збору
-    
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const lastClaimDay = new Date(lastClaim); lastClaimDay.setHours(0, 0, 0, 0);
     const diffDays = Math.round((today - lastClaimDay) / (1000 * 60 * 60 * 24));
     
-    if (diffDays === 1) {
-      dailyAvailable = true; // Зайшов на наступний день - молодець!
-    } else if (diffDays > 1) {
-      dailyAvailable = true;
-      user.daily_streak = 0; // Пропустив день - серія згорає
-    }
+    if (diffDays === 1) dailyAvailable = true;
+    else if (diffDays > 1) { dailyAvailable = true; user.daily_streak = 0; }
   }
 
   return { user, passiveEarned, dailyAvailable };
@@ -105,8 +94,6 @@ app.post('/api/user/init', async (req, res) => {
   const { telegram_id, first_name, referrer_id } = req.body;
   try {
     let user = await User.findByPk(String(telegram_id));
-    let isNew = false;
-
     if (!user) {
       const boostTime = referrer_id ? new Date(Date.now() + 12 * 60 * 60 * 1000) : null;
       user = await User.create({
@@ -114,10 +101,8 @@ app.post('/api/user/init', async (req, res) => {
         referrer_id: referrer_id ? String(referrer_id) : null, boost_until: boostTime,
         last_energy_update: new Date(), last_passive_collect: new Date()
       });
-      isNew = true;
     }
 
-    // Рахуємо все, що відбулося поки гравця не було
     const progress = calculateOfflineProgress(user);
     await progress.user.save();
 
@@ -127,10 +112,7 @@ app.post('/api/user/init', async (req, res) => {
       offline_earned: progress.passiveEarned,
       daily_available: progress.dailyAvailable
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
 
 app.post('/api/user/tap', async (req, res) => {
@@ -139,14 +121,11 @@ app.post('/api/user/tap', async (req, res) => {
 
   try {
     const user = await User.findByPk(String(telegram_id));
-    if (!user) return res.status(404).json({ error: 'Гравця не знайдено' });
+    if (!user) return res.status(404).json({ error: 'Not found' });
 
-    // Оновлюємо енергію перед тапом
     calculateOfflineProgress(user);
 
-    if (user.energy < actualTouches) {
-      return res.status(400).json({ error: 'Недостатньо енергії' });
-    }
+    if (user.energy < actualTouches) return res.status(400).json({ error: 'Недостатньо енергії' });
 
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
     const points_to_add = (active_boost ? user.level * 2 : user.level) * actualTouches;
@@ -163,38 +142,29 @@ app.post('/api/user/tap', async (req, res) => {
 
     await user.save();
     res.json({ user: { ...user.get(), active_boost } });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// Забрати щоденний бонус
 app.post('/api/user/daily', async (req, res) => {
   const { telegram_id } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
     const progress = calculateOfflineProgress(user);
-    
-    if (!progress.dailyAvailable) return res.status(400).json({ error: 'Бонус вже отримано' });
+    if (!progress.dailyAvailable) return res.status(400).json({ error: 'Вже отримано' });
 
     user.daily_streak = (user.daily_streak || 0) + 1;
-    if (user.daily_streak > 7) user.daily_streak = 7; // Максимум 7 рівень бонусу
+    if (user.daily_streak > 7) user.daily_streak = 7;
 
-    const bonusAmounts = [0, 500, 1000, 2500, 5000, 15000, 30000, 100000]; // Бонуси за 1-7 дні
+    const bonusAmounts = [0, 500, 1000, 2500, 5000, 15000, 30000, 100000];
     const reward = bonusAmounts[user.daily_streak];
     
     user.season_points = Number(user.season_points) + reward;
     user.last_daily_claim = new Date();
-    
     await user.save();
     res.json({ user: user.get(), reward });
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// Купити прокачку в магазині
 app.post('/api/user/buy_upgrade', async (req, res) => {
   const { telegram_id, cost, income_increase } = req.body;
   try {
@@ -203,22 +173,30 @@ app.post('/api/user/buy_upgrade', async (req, res) => {
 
     user.season_points = Number(user.season_points) - cost;
     user.passive_income += income_increase;
-    user.last_passive_collect = new Date(); // Оновлюємо таймер
+    user.last_passive_collect = new Date(); 
 
     await user.save();
     res.json({ user: user.get() });
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Server error' }); }
+});
+
+// 🔥 НОВИЙ МАРШРУТ: Відновлення енергії за відео 🔥
+app.post('/api/user/refill_energy', async (req, res) => {
+  const { telegram_id } = req.body;
+  try {
+    const user = await User.findByPk(String(telegram_id));
+    user.energy = MAX_ENERGY;
+    user.last_energy_update = new Date();
+    await user.save();
+    res.json({ energy: user.energy });
+  } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
 
 app.get('/api/leaderboard', async (req, res) => {
-  // Код рейтингу залишається тим самим...
   const { telegram_id } = req.query;
   try {
     const topUsers = await User.findAll({ order: [['season_points', 'DESC']], limit: 11, attributes: ['telegram_id', 'first_name', 'season_points', 'level']});
-    let currentUserRank = null;
-    let currentUserData = null;
+    let currentUserRank = null; let currentUserData = null;
     if (telegram_id) {
       currentUserData = await User.findByPk(String(telegram_id), { attributes: ['telegram_id', 'first_name', 'season_points', 'level'] });
       if (currentUserData) {
@@ -227,9 +205,7 @@ app.get('/api/leaderboard', async (req, res) => {
       }
     }
     res.json({ leaderboard: topUsers, currentUser: currentUserData ? { ...currentUserData.get(), rank: currentUserRank } : null });
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
 
 app.listen(PORT, () => console.log(`🚀 Сервер працює на порту ${PORT}`));
