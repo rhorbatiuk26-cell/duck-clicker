@@ -33,8 +33,22 @@ const User = sequelize.define('User', {
 });
 
 sequelize.sync({ alter: true }).then(() => {
-  console.log('✅ База даних успішно підключена та оновлена!');
+  console.log('✅ База даних успішно підключена!');
 }).catch(err => console.error('Помилка бази даних:', err));
+
+// 🔥 СИСТЕМА РІВНІВ (9 рівнів, ціна х2 кожного разу) 🔥
+// Скільки всього очок треба мати, щоб досягти рівня
+const LEVEL_THRESHOLDS = [
+  0,          // 1 рівень
+  1000,       // 2 рівень
+  2000,       // 3 рівень
+  4000,       // 4 рівень
+  8000,       // 5 рівень
+  16000,      // 6 рівень
+  32000,      // 7 рівень
+  64000,      // 8 рівень
+  128000      // 9 рівень (Максимум)
+];
 
 // --- API МАРШРУТИ ---
 
@@ -66,12 +80,22 @@ app.post('/api/user/tap', async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Гравця не знайдено' });
 
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
-    const points_to_add = active_boost ? 2 : 1;
+    
+    // 🔥 МУЛЬТИ-ТАП: Очки за клік дорівнюють рівню гравця 🔥
+    const base_tap = user.level; 
+    const points_to_add = active_boost ? base_tap * 2 : base_tap;
     
     user.season_points = Number(user.season_points) + points_to_add;
     
-    if (user.season_points >= 1000 && user.level === 1) user.level = 2;
-    if (user.season_points >= 5000 && user.level === 2) user.level = 3;
+    // Перевірка на підвищення рівня
+    let new_level = 1;
+    for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+      if (user.season_points >= LEVEL_THRESHOLDS[i]) {
+        new_level = i + 1;
+        break;
+      }
+    }
+    user.level = new_level > 9 ? 9 : new_level; // Максимум 9 рівень
 
     await user.save();
     res.json({ user: { ...user.get(), active_boost } });
@@ -81,19 +105,15 @@ app.post('/api/user/tap', async (req, res) => {
   }
 });
 
-// 🔥 ОНОВЛЕНИЙ МАРШРУТ: РЕЙТИНГ ТА МІСЦЕ ГРАВЦЯ 🔥
 app.get('/api/leaderboard', async (req, res) => {
-  const { telegram_id } = req.query; // Отримуємо ID гравця, який відкрив рейтинг
-
+  const { telegram_id } = req.query;
   try {
-    // 1. Отримуємо Топ-11
     const topUsers = await User.findAll({
       order: [['season_points', 'DESC']],
       limit: 11,
       attributes: ['telegram_id', 'first_name', 'season_points', 'level']
     });
 
-    // 2. Визначаємо місце поточного гравця, хоч би де він був
     let currentUserRank = null;
     let currentUserData = null;
 
@@ -103,16 +123,9 @@ app.get('/api/leaderboard', async (req, res) => {
       });
 
       if (currentUserData) {
-        // Рахуємо кількість людей, у яких більше очок, ніж у нас
         const higherScoresCount = await User.count({
-          where: {
-            season_points: {
-              [Op.gt]: currentUserData.season_points
-            }
-          }
+          where: { season_points: { [Op.gt]: currentUserData.season_points } }
         });
-        
-        // Наше місце = кількість людей попереду + 1
         currentUserRank = higherScoresCount + 1; 
       }
     }
