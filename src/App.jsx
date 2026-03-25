@@ -267,7 +267,7 @@ function App() {
 
   const currentSkinImg = SKINS.find(s => s.id === userData.current_skin)?.img || SKINS[0].img;
   const league = getLeague(level);
-
+  const energyPercent = (energy / MAX_ENERGY) * 100;
   const bgColors = ["from-gray-900 to-gray-950", "from-slate-900 to-slate-950", "from-blue-900 to-gray-950", "from-indigo-900 to-gray-950", "from-purple-900 to-gray-950", "from-fuchsia-900 to-gray-950", "from-rose-900 to-gray-950", "from-red-900 to-gray-950", "from-yellow-900 to-gray-950"];
 
   return (
