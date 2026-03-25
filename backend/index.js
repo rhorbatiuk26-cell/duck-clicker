@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Sequelize, DataTypes } from 'sequelize';
+import { Sequelize, DataTypes, Op } from 'sequelize';
 
 dotenv.config();
 
@@ -81,15 +81,46 @@ app.post('/api/user/tap', async (req, res) => {
   }
 });
 
-// 🔥 НОВИЙ МАРШРУТ: ТАБЛИЦЯ ЛІДЕРІВ (ТОП-11) 🔥
+// 🔥 ОНОВЛЕНИЙ МАРШРУТ: РЕЙТИНГ ТА МІСЦЕ ГРАВЦЯ 🔥
 app.get('/api/leaderboard', async (req, res) => {
+  const { telegram_id } = req.query; // Отримуємо ID гравця, який відкрив рейтинг
+
   try {
+    // 1. Отримуємо Топ-11
     const topUsers = await User.findAll({
-      order: [['season_points', 'DESC']], // Сортуємо від найбільшого до найменшого
-      limit: 11, // Беремо тільки 11 найкращих
-      attributes: ['telegram_id', 'first_name', 'season_points', 'level'] // Не передаємо зайві дані
+      order: [['season_points', 'DESC']],
+      limit: 11,
+      attributes: ['telegram_id', 'first_name', 'season_points', 'level']
     });
-    res.json({ leaderboard: topUsers });
+
+    // 2. Визначаємо місце поточного гравця, хоч би де він був
+    let currentUserRank = null;
+    let currentUserData = null;
+
+    if (telegram_id) {
+      currentUserData = await User.findByPk(String(telegram_id), {
+        attributes: ['telegram_id', 'first_name', 'season_points', 'level']
+      });
+
+      if (currentUserData) {
+        // Рахуємо кількість людей, у яких більше очок, ніж у нас
+        const higherScoresCount = await User.count({
+          where: {
+            season_points: {
+              [Op.gt]: currentUserData.season_points
+            }
+          }
+        });
+        
+        // Наше місце = кількість людей попереду + 1
+        currentUserRank = higherScoresCount + 1; 
+      }
+    }
+
+    res.json({ 
+      leaderboard: topUsers,
+      currentUser: currentUserData ? { ...currentUserData.get(), rank: currentUserRank } : null
+    });
   } catch (error) {
     console.error('Помилка отримання рейтингу:', error);
     res.status(500).json({ error: 'Помилка сервера' });

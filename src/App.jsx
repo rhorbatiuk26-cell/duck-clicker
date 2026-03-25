@@ -14,6 +14,7 @@ function App() {
   // Стан для Таблиці Лідерів
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState([]);
+  const [currentUserRankData, setCurrentUserRankData] = useState(null);
   const [isLoadingLeaders, setIsLoadingLeaders] = useState(false);
 
   const tg = window.Telegram.WebApp;
@@ -43,7 +44,7 @@ function App() {
   }, [user, startParam]);
 
   const handleTap = async () => {
-    if (!userData || showLeaderboard) return; // Блокуємо тап, якщо відкрито рейтинг
+    if (!userData || showLeaderboard) return; // Блокуємо тап під час перегляду рейтингу
 
     tg.HapticFeedback.impactOccurred('light');
 
@@ -60,15 +61,16 @@ function App() {
     }
   };
 
-  // Функція для завантаження рейтингу
+  // Функція завантаження рейтингу (тепер передаємо наш ID)
   const openLeaderboard = async () => {
     setShowLeaderboard(true);
     setIsLoadingLeaders(true);
     tg.HapticFeedback.impactOccurred('medium');
     
     try {
-      const response = await axios.get(`${SERVER_URL}/leaderboard`);
+      const response = await axios.get(`${SERVER_URL}/leaderboard?telegram_id=${user.id}`);
       setLeaderboardData(response.data.leaderboard);
+      setCurrentUserRankData(response.data.currentUser);
     } catch (err) {
       console.error('Не вдалося завантажити рейтинг', err);
     } finally {
@@ -104,7 +106,6 @@ function App() {
       <div className="text-center w-full mt-2">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-xl font-bold text-white">Привіт, {userData.first_name}! 👋</h1>
-          {/* Кнопка Рейтингу */}
           <button 
             onClick={openLeaderboard}
             className="bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-2 px-4 rounded-xl shadow-lg transition-transform active:scale-95"
@@ -138,7 +139,7 @@ function App() {
         />
       </div>
 
-      {/* Низ: Прогрес бар та Рівень */}
+      {/* Низ: Прогрес бар */}
       <div className="w-full bg-gray-800 p-4 rounded-3xl border border-gray-700 mb-2">
         <div className="flex justify-between items-center mb-2">
           <span className="font-bold text-white">Рівень {userData.level}</span>
@@ -156,18 +157,19 @@ function App() {
 
       {/* МОДАЛЬНЕ ВІКНО: ТАБЛИЦЯ ЛІДЕРІВ */}
       {showLeaderboard && (
-        <div className="absolute inset-0 z-50 bg-gray-950/95 flex flex-col p-6 animate-fade-in backdrop-blur-sm">
-          <div className="flex justify-between items-center mb-6 mt-4">
+        <div className="absolute inset-0 z-50 bg-gray-950/95 flex flex-col p-6 animate-fade-in backdrop-blur-md">
+          <div className="flex justify-between items-center mb-4 mt-4">
             <h2 className="text-3xl font-black text-yellow-400 uppercase tracking-widest">ТОП Сезону</h2>
             <button 
               onClick={() => setShowLeaderboard(false)}
-              className="bg-gray-800 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-xl"
+              className="bg-gray-800 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-xl active:scale-90"
             >
               ✕
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto bg-gray-900 rounded-3xl p-4 border border-gray-700">
+          {/* Список Топ-11 */}
+          <div className="flex-1 overflow-y-auto bg-gray-900 rounded-3xl p-4 border border-gray-700 mb-4 shadow-inner">
             {isLoadingLeaders ? (
               <div className="flex justify-center items-center h-full text-yellow-400">
                 <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-b-4 border-yellow-400"></div>
@@ -178,7 +180,7 @@ function App() {
                   <div 
                     key={player.telegram_id} 
                     className={`flex items-center justify-between p-3 rounded-2xl ${
-                      index === 0 ? 'bg-yellow-500/20 border border-yellow-500/50' : 
+                      index === 0 ? 'bg-yellow-500/20 border border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 
                       index === 1 ? 'bg-gray-300/10 border border-gray-300/30' : 
                       index === 2 ? 'bg-orange-500/10 border border-orange-500/30' : 
                       'bg-gray-800'
@@ -198,14 +200,31 @@ function App() {
                       </div>
                     </div>
                     <div className="font-black text-yellow-400">
-                      {player.season_points} 💰
+                      {player.season_points}
                     </div>
                   </div>
                 ))}
-                {leaderboardData.length === 0 && <p className="text-center text-gray-500 mt-10">Ще немає гравців</p>}
               </div>
             )}
           </div>
+
+          {/* 🔥 ПЛАШКА ПОТОЧНОГО ГРАВЦЯ (НАВІТЬ ЯКЩО 1964 МІСЦЕ) 🔥 */}
+          {!isLoadingLeaders && currentUserRankData && (
+            <div className="bg-yellow-500 rounded-3xl p-4 text-gray-900 shadow-[0_0_20px_rgba(234,179,8,0.4)] border-2 border-yellow-400 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="font-black text-3xl w-14 text-center">
+                  #{currentUserRankData.rank}
+                </div>
+                <div>
+                  <p className="font-black text-sm uppercase">Твій результат</p>
+                  <p className="text-xs font-bold opacity-80">Рівень {currentUserRankData.level}</p>
+                </div>
+              </div>
+              <div className="font-black text-2xl">
+                {currentUserRankData.season_points} 💰
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
