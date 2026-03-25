@@ -32,7 +32,6 @@ const User = sequelize.define('User', {
   boost_until: { type: DataTypes.DATE, allowNull: true }
 });
 
-// Додав alter: true, щоб база сама оновила структуру, якщо треба
 sequelize.sync({ alter: true }).then(() => {
   console.log('✅ База даних успішно підключена та оновлена!');
 }).catch(err => console.error('Помилка бази даних:', err));
@@ -41,14 +40,10 @@ sequelize.sync({ alter: true }).then(() => {
 
 app.post('/api/user/init', async (req, res) => {
   const { telegram_id, first_name, referrer_id } = req.body;
-
   try {
-    // ВИПРАВЛЕННЯ: Перетворюємо telegram_id на текст String()
     let user = await User.findByPk(String(telegram_id));
-
     if (!user) {
       const boostTime = referrer_id ? new Date(Date.now() + 12 * 60 * 60 * 1000) : null;
-      
       user = await User.create({
         telegram_id: String(telegram_id),
         first_name: first_name || 'Гравець',
@@ -56,9 +51,7 @@ app.post('/api/user/init', async (req, res) => {
         boost_until: boostTime
       });
     }
-
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
-
     res.json({ user: { ...user.get(), active_boost } });
   } catch (error) {
     console.error('Помилка ініціалізації:', error);
@@ -68,18 +61,13 @@ app.post('/api/user/init', async (req, res) => {
 
 app.post('/api/user/tap', async (req, res) => {
   const { telegram_id } = req.body;
-
   try {
-    // ВИПРАВЛЕННЯ: Перетворюємо telegram_id на текст String()
     const user = await User.findByPk(String(telegram_id));
-    
     if (!user) return res.status(404).json({ error: 'Гравця не знайдено' });
 
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
-    
     const points_to_add = active_boost ? 2 : 1;
     
-    // Переконуємось, що працюємо з числами
     user.season_points = Number(user.season_points) + points_to_add;
     
     if (user.season_points >= 1000 && user.level === 1) user.level = 2;
@@ -89,6 +77,21 @@ app.post('/api/user/tap', async (req, res) => {
     res.json({ user: { ...user.get(), active_boost } });
   } catch (error) {
     console.error('Помилка тапу:', error);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// 🔥 НОВИЙ МАРШРУТ: ТАБЛИЦЯ ЛІДЕРІВ (ТОП-11) 🔥
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const topUsers = await User.findAll({
+      order: [['season_points', 'DESC']], // Сортуємо від найбільшого до найменшого
+      limit: 11, // Беремо тільки 11 найкращих
+      attributes: ['telegram_id', 'first_name', 'season_points', 'level'] // Не передаємо зайві дані
+    });
+    res.json({ leaderboard: topUsers });
+  } catch (error) {
+    console.error('Помилка отримання рейтингу:', error);
     res.status(500).json({ error: 'Помилка сервера' });
   }
 });
