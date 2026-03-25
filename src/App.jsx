@@ -4,13 +4,25 @@ import axios from 'axios';
 const SERVER_URL = 'https://duck-clicker-production.up.railway.app/api';
 const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ'; 
 
-// 🔥 ТВІЙ БОТ 🔥
+// 🔥 ТВІЙ БОТ ТА ID 🔥
 const BOT_USERNAME = 'GoldDuckTap_bot';
+const ADMIN_TELEGRAM_ID = '1057689349'; 
 
-const DUCK_IMAGE = "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f986.svg";
 const LEVEL_THRESHOLDS = [0, 5000, 25000, 100000, 500000, 2000000, 25000000, 100000000, 1000000000];
 const MAX_ENERGY = 2000;
 const levelNames = ["Бродяга", "Новачок", "Шукач", "Хуліган", "Бізнесмен", "Бос", "Магнат", "Олігарх", "Божество"];
+
+const LEVEL_SKINS = [
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f986.svg", // 1: Качка
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f424.svg", // 2: Курчатко
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f425.svg", // 3: Пташеня
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f426.svg", // 4: Пташка
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f989.svg", // 5: Сова
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f985.svg", // 6: Орел
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a2.svg", // 7: Лебідь
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a9.svg", // 8: Фламінго
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f99a.svg", // 9: Павич
+];
 
 const getLeague = (lvl) => {
   if (lvl <= 3) return { name: "Бронзова Ліга 🥉", color: "text-orange-400" };
@@ -19,12 +31,10 @@ const getLeague = (lvl) => {
 };
 
 const SKINS = [
-  { id: 'default', name: 'Класична Качка', img: DUCK_IMAGE, cost: 0 },
-  { id: 'cool', name: 'Качка-Хуліган', img: 'https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f60e.svg', cost: 500000 },
+  { id: 'cool', name: 'Качка-Кіборг', img: 'https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f916.svg', cost: 5000000 },
   { id: 'rich', name: 'Золота Качка', img: 'https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f911.svg', cost: 10000000 },
 ];
 
-// 🔥 ПЕРЕБАЛАНСОВАНИЙ МАГАЗИН 🔥
 const SHOP_ITEMS = [
   { id: 1, name: "Стара Кепка", desc: "+1 монета / сек", cost: 5000, income: 1, icon: "🧢" },
   { id: 2, name: "Гітара Бродяги", desc: "+5 монет / сек", cost: 30000, income: 5, icon: "🎸" },
@@ -41,25 +51,20 @@ function App() {
   const [level, setLevel] = useState(1);
   const [energy, setEnergy] = useState(MAX_ENERGY);
   const [passiveIncome, setPassiveIncome] = useState(0);
-  
   const [activeTab, setActiveTab] = useState('tap'); 
   const [shopSubTab, setShopSubTab] = useState('business');
   const [clicks, setClicks] = useState([]);
-  
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardTab, setLeaderboardTab] = useState('players');
   const [leadersData, setLeadersData] = useState({ players: [], squads: [] });
   const [currentUserRankData, setCurrentUserRankData] = useState(null);
-  
+  const [dailyAvailable, setDailyAvailable] = useState(false);
   const [showDailyModal, setShowDailyModal] = useState(false);
   const [offlineEarned, setOfflineEarned] = useState(0);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [justReachedLevel, setJustReachedLevel] = useState(null);
-
   const [showSquadModal, setShowSquadModal] = useState(false);
   const [squadInput, setSquadInput] = useState('');
-
-  // 🔥 НОВЕ: ОНБОРДИНГ ТА НАЛАШТУВАННЯ 🔥
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('onboarding_done'));
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
@@ -70,7 +75,6 @@ function App() {
   const startParam = tg.initDataUnsafe?.start_param;
   const duckRef = useRef(null);
 
-  // Кастомні функції для вібрації (з перевіркою налаштувань)
   const triggerHaptic = (type) => { if (hapticEnabled) tg.HapticFeedback.impactOccurred(type); };
   const triggerNotification = (type) => { if (hapticEnabled) tg.HapticFeedback.notificationOccurred(type); };
   const triggerSelection = () => { if (hapticEnabled) tg.HapticFeedback.selectionChanged(); };
@@ -90,7 +94,7 @@ function App() {
         setPassiveIncome(Number(data.user.passive_income));
         
         if (data.offline_earned > 0) { setOfflineEarned(data.offline_earned); setTimeout(() => setOfflineEarned(0), 5000); }
-        if (data.daily_available && !showOnboarding) setShowDailyModal(true);
+        if (data.daily_available) { setDailyAvailable(true); if (!showOnboarding) setShowDailyModal(true); }
       } catch (err) {}
     };
     fetchUser();
@@ -107,7 +111,6 @@ function App() {
         let calcLevel = 1;
         for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (newPoints >= LEVEL_THRESHOLDS[i]) { calcLevel = i + 1; break; } }
         if (calcLevel > 9) calcLevel = 9;
-        
         setLevel(currentLevel => {
           if (calcLevel > currentLevel) { setJustReachedLevel(calcLevel); setShowLevelUp(true); triggerNotification('success'); return calcLevel; }
           return currentLevel;
@@ -137,7 +140,6 @@ function App() {
     if (actualTouches === 0) return;
 
     triggerHaptic('medium');
-
     const tapValue = userData.active_boost ? level * userData.boost_multiplier : level;
     const totalPointsToAdd = tapValue * actualTouches;
 
@@ -160,7 +162,6 @@ function App() {
     });
     setClicks(prev => [...prev.slice(-20), ...newClicks]);
     setTimeout(() => { const idsToRemove = newClicks.map(c => c.id); setClicks(prev => prev.filter(c => !idsToRemove.includes(c.id))); }, 1000);
-
     try { await axios.post(`${SERVER_URL}/user/tap`, { telegram_id: userData.telegram_id, count: actualTouches }); } catch (err) {}
   };
 
@@ -205,6 +206,13 @@ function App() {
       setUserData(res.data.user); setPoints(Number(res.data.user.season_points));
     } catch (err) {}
   };
+  
+  const resetToEvolutionSkin = async () => {
+    try {
+      const res = await axios.post(`${SERVER_URL}/user/buy_skin`, { telegram_id: userData.telegram_id, skin_id: 'default', cost: 0 });
+      setUserData(res.data.user); triggerNotification('success');
+    } catch (err) {}
+  };
 
   const submitSquad = async () => {
     if (!squadInput.trim()) return;
@@ -227,7 +235,6 @@ function App() {
     } catch (err) {}
   };
 
-  // 🔥 НОВЕ: СОЦІАЛЬНІ ЗАВДАННЯ 🔥
   const claimSocialTask = async (type, link) => {
     if (userData[`task_${type}_claimed`]) return;
     tg.openLink(link);
@@ -239,7 +246,7 @@ function App() {
         if (calcLevel > level) { setJustReachedLevel(calcLevel); setShowLevelUp(true); setLevel(calcLevel); }
         triggerNotification('success'); tg.showAlert(`Нагороду отримано! +${response.data.reward} 💰`);
       } catch (err) { triggerNotification('error'); tg.showAlert("Спробуй ще раз."); }
-    }, 5000); // 5 секунд чекаємо, поки людина повернеться
+    }, 5000);
   };
 
   const claimTelegramTask = async () => {
@@ -268,6 +275,19 @@ function App() {
     });
   };
 
+  // 🔥 АДМІН-ФУНКЦІЯ: ТЕСТОВЕ ЗАВЕРШЕННЯ СЕЗОНУ 🔥
+  const endSeasonAdmin = async () => {
+    tg.showConfirm("АДМІН! Завершити сезон прямо зараз? (Відправить тобі звіт у бот і обнулить всіх)", async (agreed) => {
+      if (agreed) {
+        try {
+          await axios.post(`${SERVER_URL}/admin/end_season`, { telegram_id: userData.telegram_id });
+          tg.showAlert("✅ СЕЗОН УСПІШНО ЗАВЕРШЕНО! Перевір повідомлення від бота.");
+          window.location.reload(); // Перезавантажуємо гру для скидання
+        } catch (err) { tg.showAlert("Помилка Адмінки. Перевір ADMIN_TELEGRAM_ID в Railway."); }
+      }
+    });
+  };
+
   const openLeaderboard = async () => {
     setShowLeaderboard(true); triggerHaptic('light');
     try {
@@ -279,49 +299,40 @@ function App() {
   const claimDaily = async () => {
     try {
       const response = await axios.post(`${SERVER_URL}/user/daily`, { telegram_id: userData.telegram_id });
-      setPoints(Number(response.data.user.season_points)); setUserData(response.data.user); setShowDailyModal(false); triggerNotification('success');
+      setPoints(Number(response.data.user.season_points)); setUserData(response.data.user); setShowDailyModal(false); setDailyAvailable(false); triggerNotification('success');
     } catch (err) { setShowDailyModal(false); }
   };
 
   const toggleHaptic = () => {
-    const newState = !hapticEnabled;
-    setHapticEnabled(newState);
-    localStorage.setItem('haptic_enabled', newState);
+    const newState = !hapticEnabled; setHapticEnabled(newState); localStorage.setItem('haptic_enabled', newState);
     if (newState) tg.HapticFeedback.impactOccurred('light');
   };
 
   const finishOnboarding = () => {
-    localStorage.setItem('onboarding_done', 'true');
-    setShowOnboarding(false);
-    if (userData && !userData.last_daily_claim) setShowDailyModal(true);
+    localStorage.setItem('onboarding_done', 'true'); setShowOnboarding(false);
+    if (dailyAvailable) setShowDailyModal(true);
   };
 
   if (!user || !userData) return <div className="h-screen bg-gray-950 flex flex-col items-center justify-center font-bold text-yellow-400">Завантаження...</div>;
 
-  // 🔥 ЕКРАН НАВЧАННЯ (ОНБОРДИНГ) 🔥
   if (showOnboarding) {
     return (
       <div className="h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center select-none text-white z-[100] relative">
-        {onboardingStep === 0 && (
-          <div className="animate-fade-in"><div className="text-8xl mb-6">🦆</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Привіт в Gold Duck!</h2><p className="text-gray-300 mb-8">Це не просто клікер. Це чесна гра, де ми віддаємо <span className="font-bold text-white">15% доходу</span> лідерам наприкінці сезону.</p></div>
-        )}
-        {onboardingStep === 1 && (
-          <div className="animate-fade-in"><div className="text-8xl mb-6">🛒</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Пасивний дохід</h2><p className="text-gray-300 mb-8">Зароблені монети витрачай на бізнеси. Качка буде працювати і приносити гроші, навіть коли ти офлайн (до 3-х годин).</p></div>
-        )}
-        {onboardingStep === 2 && (
-          <div className="animate-fade-in"><div className="text-8xl mb-6">🛡️</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Сквади (Команди)</h2><p className="text-gray-300 mb-8">Об'єднуйся в команди з друзями! Якщо твій сквад переможе, всі його учасники отримають величезний бонус.</p></div>
-        )}
-        <button onClick={() => { triggerHaptic('light'); if (onboardingStep < 2) setOnboardingStep(prev => prev + 1); else finishOnboarding(); }} className="bg-yellow-500 text-gray-900 font-black text-xl py-4 w-full rounded-2xl active:scale-95 absolute bottom-10 left-6 right-6">
-          {onboardingStep < 2 ? 'Далі ➔' : 'Почати Гру! 🚀'}
-        </button>
+        {onboardingStep === 0 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">🦆</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Привіт в Gold Duck!</h2><p className="text-gray-300 mb-8">Це не просто клікер. Це чесна гра, де ми віддаємо <span className="font-bold text-white">15% доходу</span> лідерам наприкінці сезону.</p></div> )}
+        {onboardingStep === 1 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">🛒</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Пасивний дохід</h2><p className="text-gray-300 mb-8">Зароблені монети витрачай на бізнеси. Качка буде працювати і приносити гроші, навіть коли ти офлайн (до 3-х годин).</p></div> )}
+        {onboardingStep === 2 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">🛡️</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Сквади (Команди)</h2><p className="text-gray-300 mb-8">Об'єднуйся в команди з друзями! Якщо твій сквад переможе, всі його учасники отримають величезний бонус.</p></div> )}
+        <button onClick={() => { triggerHaptic('light'); if (onboardingStep < 2) setOnboardingStep(prev => prev + 1); else finishOnboarding(); }} className="bg-yellow-500 text-gray-900 font-black text-xl py-4 w-full rounded-2xl active:scale-95 absolute bottom-10 left-6 right-6"> {onboardingStep < 2 ? 'Далі ➔' : 'Почати Гру! 🚀'} </button>
       </div>
     );
   }
 
-  const currentSkinImg = SKINS.find(s => s.id === userData.current_skin)?.img || SKINS[0].img;
+  // 🔥 ЛОГІКА СКІНА: Якщо default - показуємо еволюцію по рівню. Інакше - куплений скін.
+  const currentSkinImg = userData?.current_skin === 'default' 
+    ? LEVEL_SKINS[Math.min(level - 1, 8)] 
+    : SKINS.find(s => s.id === userData?.current_skin)?.img || LEVEL_SKINS[Math.min(level - 1, 8)];
+
   const league = getLeague(level);
   const energyPercent = (energy / MAX_ENERGY) * 100;
-
   const bgColors = ["from-gray-900 to-gray-950", "from-slate-900 to-slate-950", "from-blue-900 to-gray-950", "from-indigo-900 to-gray-950", "from-purple-900 to-gray-950", "from-fuchsia-900 to-gray-950", "from-rose-900 to-gray-950", "from-red-900 to-gray-950", "from-yellow-900 to-gray-950"];
 
   return (
@@ -333,7 +344,6 @@ function App() {
         </div>
       )}
 
-      {/* Шапка */}
       <div className="text-center w-full p-4 z-10 shrink-0">
         <div className="flex justify-between items-center mb-4">
           <div className="text-left flex flex-col items-start">
@@ -402,6 +412,15 @@ function App() {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
+                {/* Кнопка "Зняти скін" (Еволюція) */}
+                <div className={`bg-gray-800 border p-4 rounded-3xl text-center flex flex-col items-center justify-between h-48 ${userData.current_skin === 'default' ? 'border-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'border-gray-700'}`}>
+                  <img src={LEVEL_SKINS[Math.min(level - 1, 8)]} className="w-16 h-16 object-contain mb-2 drop-shadow-lg" />
+                  <h3 className="font-bold text-sm text-white mb-2">Еволюція (Базова)</h3>
+                  <button onClick={resetToEvolutionSkin} className={`w-full py-2 rounded-xl text-xs font-bold active:scale-95 transition-all ${userData.current_skin === 'default' ? 'bg-yellow-400 text-gray-900' : 'bg-gray-600 text-white'}`}>
+                    {userData.current_skin === 'default' ? 'Одягнено' : 'Одягнути'}
+                  </button>
+                </div>
+
                 {SKINS.map(skin => {
                   const isOwned = userData.unlocked_skins?.includes(skin.id);
                   const isEquipped = userData.current_skin === skin.id;
@@ -423,6 +442,13 @@ function App() {
         {activeTab === 'tasks' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
             
+            {/* 🔥 КНОПКА ЩОДЕННОГО БОНУСУ 🔥 */}
+            {dailyAvailable && (
+              <button onClick={() => setShowDailyModal(true)} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-gray-900 font-black py-4 rounded-2xl mb-6 shadow-[0_0_15px_rgba(249,115,22,0.5)] animate-pulse active:scale-95">
+                🎁 Забрати Щоденний Бонус!
+              </button>
+            )}
+
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🔄 Бусти (За відео)</h2>
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl flex flex-col items-center text-center gap-2">
@@ -443,7 +469,6 @@ function App() {
               </div>
             </div>
 
-            {/* 🔥 НОВЕ: БАГАТО СОЦІАЛЬНИХ ЗАВДАНЬ 🔥 */}
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🌐 Соцмережі</h2>
             <div className="space-y-3 mb-6">
               <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
@@ -495,12 +520,28 @@ function App() {
             <h2 className="text-2xl font-black text-yellow-400 mb-4 text-center">ℹ️ Інфо та Правила</h2>
             <div className="bg-gray-800 border border-gray-700 p-5 rounded-3xl text-sm text-gray-300 space-y-4 mb-6 shadow-xl">
               <p><strong className="text-white text-base">1. Чесний рейтинг:</strong> Ми не казино і не лотерея. Нагороди отримують лише ті, хто закріпився в ТОП-11 рейтингу на момент закінчення сезону (1-го числа о 00:00).</p>
+              
               <p><strong className="text-yellow-400 text-base">2. Призовий фонд (Прозоро):</strong> Ми гарантовано віддаємо <span className="font-bold text-white">15% від усього доходу з реклами</span> щомісяця. <br/> 
               <span className="text-xs text-gray-400">Наприклад: Якщо дохід склав $5000, призовий фонд — $750. Чим більше ви дивитесь рекламу (бусти), тим більший загальний призовий фонд!</span></p>
+
               <p><strong className="text-blue-400 text-base">3. Сквади (Команди):</strong> Створи свій Сквад або приєднайся до існуючого. Якщо Сквад перемагає в рейтингу команд — <span className="font-bold text-white">50% призу отримує адміністратор Скваду, а інші 50% діляться між ТОП гравцями цієї команди.</span></p>
+              
               <p><strong className="text-white text-base">4. Як заробити очки:</strong> Тапай, купуй бізнеси для пасивного доходу (працює до 3-х годин офлайн) та виконуй завдання.</p>
+              
               <p><strong className="text-red-400 text-base">5. Античит:</strong> Сторонні скрипти суворо заборонені. Система виявляє їх автоматично і блокує гравця до кінця сезону.</p>
             </div>
+            
+            {/* 🔥 АДМІН-ПАНЕЛЬ (ВИДНО ТІЛЬКИ ТОБІ) 🔥 */}
+            {String(user.id) === ADMIN_TELEGRAM_ID && (
+              <div className="bg-red-900/50 border-2 border-red-500 p-5 rounded-3xl mb-6 shadow-[0_0_20px_rgba(239,68,68,0.5)]">
+                <h2 className="text-xl font-black text-white mb-2 text-center">👑 ПАНЕЛЬ АДМІНА</h2>
+                <p className="text-xs text-gray-300 text-center mb-4">Натисни кнопку нижче, щоб <b>протестувати завершення сезону</b>. Це надішле тобі в бота звіт і обнулить всі монети.</p>
+                <button onClick={endSeasonAdmin} className="bg-red-600 text-white font-black py-4 rounded-xl w-full active:scale-95 transition-all">
+                  🛑 ТЕСТОВЕ ЗАВЕРШЕННЯ СЕЗОНУ
+                </button>
+              </div>
+            )}
+
           </div>
         )}
       </div>
@@ -543,22 +584,36 @@ function App() {
       {showLeaderboard && (
         <div className="absolute inset-0 z-[60] bg-gray-950/95 flex flex-col p-6 animate-fade-in backdrop-blur-md">
            <div className="flex justify-between items-center mb-4 mt-4"><h2 className="text-3xl font-black text-yellow-400 uppercase tracking-widest">ТОП Сезону</h2><button onClick={() => setShowLeaderboard(false)} className="bg-gray-800 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-xl active:scale-90">✕</button></div>
+          
           <div className="flex bg-gray-800 rounded-2xl p-1 mb-4">
             <button onClick={() => setLeaderboardTab('players')} className={`flex-1 py-2 font-bold rounded-xl transition-all ${leaderboardTab === 'players' ? 'bg-yellow-500 text-gray-900' : 'text-gray-500'}`}>Гравці</button>
             <button onClick={() => setLeaderboardTab('squads')} className={`flex-1 py-2 font-bold rounded-xl transition-all ${leaderboardTab === 'squads' ? 'bg-yellow-500 text-gray-900' : 'text-gray-500'}`}>Сквади</button>
           </div>
+
           <div className="flex-1 overflow-y-auto bg-gray-900 rounded-3xl p-4 border border-gray-700 mb-4 shadow-inner">
              {leaderboardTab === 'players' ? (
                 leadersData.players.map((player, index) => (
                   <div key={player.telegram_id} className={`flex items-center justify-between p-3 rounded-2xl ${index === 0 ? 'bg-yellow-500/20 border border-yellow-500/50' : 'bg-gray-800'} mb-2`}>
-                    <div className="flex items-center gap-3"><div className="font-black text-lg w-6 text-center text-gray-500">{index + 1}</div><div><p className="font-bold text-white text-sm">{player.first_name}</p><p className="text-[10px] text-gray-400">Рівень {player.level}</p></div></div>
+                    <div className="flex items-center gap-3">
+                      <div className="font-black text-lg w-6 text-center text-gray-500">{index + 1}</div>
+                      <div>
+                        <p className="font-bold text-white text-sm">{player.first_name}</p>
+                        <p className="text-[10px] text-gray-400">Рівень {player.level}</p>
+                      </div>
+                    </div>
                     <div className="font-black text-yellow-400">{player.season_points}</div>
                   </div>
                 ))
              ) : (
                 leadersData.squads.map((squad, index) => (
                   <div key={squad.username} className={`flex items-center justify-between p-3 rounded-2xl ${index === 0 ? 'bg-blue-500/20 border border-blue-500/50' : 'bg-gray-800'} mb-2`}>
-                    <div className="flex items-center gap-3"><div className="font-black text-lg w-6 text-center text-gray-500">{index + 1}</div><div><p className="font-bold text-white text-sm">{squad.name}</p><p className="text-[10px] text-gray-400">{squad.members_count} учасників</p></div></div>
+                    <div className="flex items-center gap-3">
+                      <div className="font-black text-lg w-6 text-center text-gray-500">{index + 1}</div>
+                      <div>
+                        <p className="font-bold text-white text-sm">{squad.name}</p>
+                        <p className="text-[10px] text-gray-400">{squad.members_count} учасників</p>
+                      </div>
+                    </div>
                     <div className="font-black text-blue-400">{squad.total_points}</div>
                   </div>
                 ))
@@ -566,7 +621,8 @@ function App() {
           </div>
           {leaderboardTab === 'players' && currentUserRankData && (
             <div className="bg-yellow-500 rounded-3xl p-4 text-gray-900 flex items-center justify-between shrink-0">
-              <div className="font-black text-3xl w-14 text-center">#{currentUserRankData.rank}</div><div className="font-black text-2xl">{currentUserRankData.season_points} 💰</div>
+              <div className="font-black text-3xl w-14 text-center">#{currentUserRankData.rank}</div>
+              <div className="font-black text-2xl">{currentUserRankData.season_points} 💰</div>
             </div>
           )}
         </div>
@@ -574,15 +630,17 @@ function App() {
 
       {showLevelUp && justReachedLevel && (
         <div className="absolute inset-0 z-[70] bg-gray-950/90 flex flex-col items-center justify-center p-6 animate-fade-in backdrop-blur-lg text-center">
-          <div className="text-8xl mb-4 animate-bounce">🎉</div><h2 className="text-4xl font-black text-white uppercase tracking-widest mb-2">Новий Рівень!</h2>
+          <div className="text-8xl mb-4 animate-bounce">🎉</div>
+          <h2 className="text-4xl font-black text-white uppercase tracking-widest mb-2">Новий Рівень!</h2>
           <p className="text-2xl text-yellow-400 font-bold mb-8">Ти тепер <span className="uppercase text-3xl block mt-2">{levelNames[justReachedLevel - 1]}</span></p>
-          <button onClick={() => setShowLevelUp(false)} className="bg-yellow-500 text-gray-900 font-black text-xl py-4 px-12 rounded-2xl shadow-[0_0_30px_rgba(234,179,8,0.5)] active:scale-95 w-full">Продовжити!</button>
+          <button onClick={() => setShowLevelUp(false)} className="bg-yellow-500 text-gray-900 font-black text-xl py-4 px-12 rounded-2xl shadow-[0_0_30px_rgba(234,179,8,0.5)] active:scale-95 transition-all w-full">Продовжити!</button>
         </div>
       )}
 
       {showDailyModal && (
         <div className="absolute inset-0 z-50 bg-gray-950/95 flex flex-col items-center justify-center p-6 animate-fade-in backdrop-blur-md text-center">
-          <div className="text-7xl mb-6 animate-bounce">🎁</div><h2 className="text-3xl font-black text-yellow-400 uppercase tracking-widest mb-4">Щоденний бонус!</h2>
+          <div className="text-7xl mb-6 animate-bounce">🎁</div>
+          <h2 className="text-3xl font-black text-yellow-400 uppercase tracking-widest mb-4">Щоденний бонус!</h2>
           <button onClick={claimDaily} className="bg-gradient-to-r from-yellow-500 to-orange-500 text-gray-900 font-black text-xl py-4 px-10 rounded-2xl w-full active:scale-95">Забрати нагороду!</button>
         </div>
       )}
