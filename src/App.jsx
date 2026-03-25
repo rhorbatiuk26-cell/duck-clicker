@@ -4,7 +4,6 @@ import axios from 'axios';
 const SERVER_URL = 'https://duck-clicker-production.up.railway.app/api';
 const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ'; 
 
-// 🔥 ТВІЙ БОТ ТА ID 🔥
 const BOT_USERNAME = 'GoldDuckTap_bot';
 const ADMIN_TELEGRAM_ID = '1057689349'; 
 
@@ -13,16 +12,16 @@ const MAX_ENERGY = 2000;
 const levelNames = ["Бродяга", "Новачок", "Шукач", "Хуліган", "Бізнесмен", "Бос", "Магнат", "Олігарх", "Божество", "Творець"];
 
 const LEVEL_SKINS = [
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f986.svg", // 1: Качка
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f424.svg", // 2: Курчатко
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f425.svg", // 3: Пташеня
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f426.svg", // 4: Пташка
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f989.svg", // 5: Сова
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f985.svg", // 6: Орел
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a2.svg", // 7: Лебідь
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a9.svg", // 8: Фламінго
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f99a.svg", // 9: Павич
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f409.svg", // 10: Дракон
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f986.svg", // 1
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f424.svg", // 2
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f425.svg", // 3
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f426.svg", // 4
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f989.svg", // 5
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f985.svg", // 6
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a2.svg", // 7
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a9.svg", // 8
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f99a.svg", // 9
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f409.svg", // 10
 ];
 
 const getLeague = (lvl) => {
@@ -37,15 +36,16 @@ const SKINS = [
   { id: 'rich', name: 'Золота Качка', img: 'https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f911.svg', cost: 10000000 },
 ];
 
-// 🔥 ІДЕАЛЬНА ЕКОНОМІКА БІЗНЕСІВ 🔥
 const SHOP_ITEMS = [
-  { id: 1, name: "Стара Кепка", desc: "+1 монета / сек", cost: 5000, income: 1, icon: "🧢" },
-  { id: 2, name: "Гітара Бродяги", desc: "+5 монет / сек", cost: 20000, income: 5, icon: "🎸" },
-  { id: 3, name: "Кіоск з Шаурмою", desc: "+30 монет / сек", cost: 100000, income: 30, icon: "🌮" },
-  { id: 4, name: "Крипто-Ферма", desc: "+150 монет / сек", cost: 400000, income: 150, icon: "💻" },
-  { id: 5, name: "Мережа Банків", desc: "+1,000 монет / сек", cost: 2000000, income: 1000, icon: "🏦" },
-  { id: 6, name: "Качиний ШІ", desc: "+5,000 монет / сек", cost: 7500000, income: 5000, icon: "🤖" },
-  { id: 7, name: "Місія на Марс", desc: "+50,000 монет / сек", cost: 50000000, income: 50000, icon: "🚀" },
+  { id: 1, name: "Стара Кепка", desc: "+1 монета / сек", baseCost: 5000, income: 1, icon: "🧢" },
+  { id: 2, name: "Гітара Бродяги", desc: "+3 монети / сек", baseCost: 25000, income: 3, icon: "🎸" },
+  { id: 3, name: "Кіоск з Шаурмою", desc: "+10 монет / сек", baseCost: 100000, income: 10, icon: "🌮" },
+  { id: 4, name: "Крипто-Ферма", desc: "+40 монет / сек", baseCost: 500000, income: 40, icon: "💻" },
+  { id: 5, name: "Мережа Банків", desc: "+150 монет / сек", baseCost: 2500000, income: 150, icon: "🏦" },
+  { id: 6, name: "Качиний ШІ", desc: "+500 монет / сек", baseCost: 10000000, income: 500, icon: "🤖" },
+  { id: 7, name: "Місія на Марс", desc: "+2,000 монет / сек", baseCost: 50000000, income: 2000, icon: "🚀" },
+  { id: 8, name: "Крипто-Біржа", desc: "+10,000 монет / сек", baseCost: 15000000, income: 10000, icon: "📈", reqRefs: 3 },
+  { id: 9, name: "Телеканал", desc: "+100,000 монет / сек", baseCost: 100000000, income: 100000, icon: "📺", reqRefs: 7 },
 ];
 
 function App() {
@@ -174,19 +174,29 @@ function App() {
   };
 
   const watchAdForBoost = (boostType) => {
-    tg.showConfirm("Подивитися відео від AdsGram для отримання бусту?", async (agreed) => {
-      if (agreed) {
-        triggerNotification('success');
-        try {
-          const res = await axios.post(`${SERVER_URL}/user/ad_boost`, { telegram_id: userData.telegram_id, boost_type: boostType });
-          setUserData(res.data.user); 
-          setPoints(Number(res.data.user.season_points));
-          setTotalEarned(Number(res.data.user.total_earned));
-          if (boostType === 'energy') setEnergy(MAX_ENERGY);
-          tg.showAlert("Успішно! Буст активовано 🚀");
-        } catch (err) { tg.showAlert(err.response?.data?.error || "Помилка активації"); }
-      }
-    });
+    if (window.Adsgram) {
+      // 🔴 ВСТАВ СВІЙ BLOCK ID ТУТ (Замість 1234567) 🔴
+      const AdController = window.Adsgram.init({ blockId: "1234567" }); 
+      
+      AdController.show()
+        .then(async (result) => {
+          triggerNotification('success');
+          try {
+            const res = await axios.post(`${SERVER_URL}/user/ad_boost`, { telegram_id: userData.telegram_id, boost_type: boostType });
+            setUserData(res.data.user); 
+            setPoints(Number(res.data.user.season_points));
+            setTotalEarned(Number(res.data.user.total_earned));
+            if (boostType === 'energy') setEnergy(MAX_ENERGY);
+            tg.showAlert("Успішно! Буст активовано 🚀");
+          } catch (err) { tg.showAlert(err.response?.data?.error || "Помилка активації"); }
+        })
+        .catch((result) => {
+          triggerNotification('error');
+          tg.showAlert("Рекламу не додивлено або зараз немає відео 😢 Спробуй пізніше.");
+        });
+    } else {
+      tg.showAlert("Помилка завантаження реклами. Перевір інтернет.");
+    }
   };
 
   const useFreeEnergy = async () => {
@@ -198,14 +208,22 @@ function App() {
     } catch (err) {}
   };
 
-  const buyUpgrade = async (item) => {
-    if (points < item.cost) { triggerNotification('error'); return; }
+  const buyUpgrade = async (item, currentCost) => {
+    if (points < currentCost) { triggerNotification('error'); return; }
     triggerNotification('success');
     try {
-      const response = await axios.post(`${SERVER_URL}/user/buy_upgrade`, { telegram_id: userData.telegram_id, cost: item.cost, income_increase: item.income });
+      const response = await axios.post(`${SERVER_URL}/user/buy_upgrade`, { 
+        telegram_id: userData.telegram_id, 
+        item_id: item.id, 
+        cost: currentCost, 
+        income_increase: item.income 
+      });
+      setUserData(response.data.user); 
       setPoints(Number(response.data.user.season_points)); 
       setPassiveIncome(Number(response.data.user.passive_income));
-    } catch (err) {}
+    } catch (err) {
+      tg.showAlert(err.response?.data?.error || "Помилка покупки");
+    }
   };
 
   const handleSkin = async (skin) => {
@@ -238,7 +256,7 @@ function App() {
     if (userData.achievements?.includes(id)) return;
     if (type === 'points' && totalEarned < goal) { tg.showAlert("Ще не назбирав монет!"); return; }
     if (type === 'level' && level < goal) { tg.showAlert("Ще не досяг рівня!"); return; }
-    if (type === 'refs' && (userData.referrals_count || 0) < goal) { tg.showAlert(`Тобі потрібно запросити ${goal} друзів! Запрошено: ${userData.referrals_count || 0}`); return; }
+    if (type === 'refs' && (userData.referrals_count || 0) < goal) { tg.showAlert(`Тобі потрібно ${goal} АКТИВНИХ друзів (3 рівень)! Зараховано: ${userData.referrals_count || 0}`); return; }
 
     triggerNotification('success');
     try {
@@ -400,7 +418,6 @@ function App() {
           <div className="flex-1 flex flex-col px-4 animate-fade-in">
             <div className="relative flex-1 flex items-center justify-center w-full touch-none" onTouchStart={handleTouch} ref={duckRef}>
               <div className="absolute bg-yellow-500/10 w-64 h-64 rounded-full blur-[50px] pointer-events-none"></div>
-              {/* 🔥 ФІКС АВТОКЛІКЕРА: Тепер активна анімація кліку працює завжди! 🔥 */}
               <img src={currentSkinImg} alt="Duck" className={`w-64 h-64 object-contain drop-shadow-[0_15px_25px_rgba(0,0,0,0.6)] pointer-events-none transition-transform duration-75 active:scale-90 ${userData.auto_click ? 'animate-pulse' : ''}`}/>
               {clicks.map((c) => (
                 <div key={c.id} className="absolute text-4xl font-black text-yellow-300 pointer-events-none z-50" style={{ left: c.x - 20, top: c.y - 50, animation: 'floatUp 1s ease-out forwards' }}>+{c.val}</div>
@@ -425,12 +442,36 @@ function App() {
 
             {shopSubTab === 'business' ? (
               <div className="space-y-4">
-                {SHOP_ITEMS.map(item => (
-                  <div key={item.id} className="bg-gray-800 border border-gray-700 p-4 rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-4"><div className="text-4xl">{item.icon}</div><div><h3 className="font-bold text-lg">{item.name}</h3><p className="text-xs text-green-400">{item.desc}</p></div></div>
-                    <button onClick={() => buyUpgrade(item)} className={`font-bold py-2 px-3 text-sm rounded-xl active:scale-95 ${points >= item.cost ? 'bg-yellow-500 text-gray-900' : 'bg-gray-700 text-gray-500'}`}>{item.cost} 💰</button>
-                  </div>
-                ))}
+                {SHOP_ITEMS.map(item => {
+                  const ownedCount = userData?.businesses?.[item.id] || 0;
+                  const currentCost = Math.floor(item.baseCost * Math.pow(1.15, ownedCount));
+                  
+                  const isLocked = item.reqRefs && (userData.referrals_count || 0) < item.reqRefs;
+                  
+                  return (
+                    <div key={item.id} className={`bg-gray-800 border p-4 rounded-2xl flex items-center justify-between ${isLocked ? 'border-red-900/50 opacity-75' : 'border-gray-700'}`}>
+                      <div className="flex items-center gap-4">
+                        <div className="text-4xl">{item.icon}</div>
+                        <div>
+                          <h3 className="font-bold text-lg text-white">
+                            {item.name} <span className="text-xs text-gray-500 ml-1">({ownedCount} шт)</span>
+                          </h3>
+                          <p className="text-xs text-green-400">{item.desc}</p>
+                        </div>
+                      </div>
+                      
+                      {isLocked ? (
+                        <button disabled className="font-bold py-2 px-3 text-[10px] rounded-xl bg-gray-700 text-gray-400 border border-gray-600">
+                          🔒 Треба {item.reqRefs} активних друзів
+                        </button>
+                      ) : (
+                        <button onClick={() => buyUpgrade(item, currentCost)} className={`font-bold py-2 px-3 text-sm rounded-xl active:scale-95 ${points >= currentCost ? 'bg-yellow-500 text-gray-900' : 'bg-gray-700 text-gray-500'}`}>
+                          {currentCost} 💰
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
@@ -513,14 +554,19 @@ function App() {
               </div>
             </div>
 
-            <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🎯 Друзі (Запрошено: {userData.referrals_count || 0})</h2>
+            <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🎯 Друзі (Запрошено активних: {userData.referrals_count || 0})</h2>
             <div className="space-y-3 mb-6">
               <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex flex-col gap-3">
                 <div className="flex justify-between items-center">
-                  <div><h3 className="font-bold text-white text-sm">🤝 Запроси друга (Win-Win)</h3><p className="text-[10px] text-green-400">Тобі 25к, Другу 25к ОДРАЗУ!</p></div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm">🤝 Запроси друга</h3>
+                    <p className="text-[10px] text-green-400">Тобі 25к, Другу 25к ОДРАЗУ!</p>
+                  </div>
                   <button onClick={() => tg.openTelegramLink(`https://t.me/share/url?url=https://t.me/${BOT_USERNAME}/play?startapp=${user.id}&text=Заходь за моїм лінком і отримай 25,000 монет на старті!`)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-xl active:scale-95">Запросити</button>
                 </div>
-                <div className="bg-gray-900/50 p-2 rounded-xl text-[10px] text-gray-400 text-center">*Бонус дається миттєво. А коли друг досягне 3-го рівня, ти отримаєш ще 50,000 монет!</div>
+                <div className="bg-gray-900/50 p-2 rounded-xl text-[10px] text-gray-400 text-center">
+                  *Бонус +25к дається миттєво обом. АЛЕ друг зарахується тобі в прогрес (для бізнесів) і ти отримаєш ще +50,000 монет ТІЛЬКИ коли він досягне 3-го рівня!
+                </div>
               </div>
             </div>
             
@@ -529,9 +575,9 @@ function App() {
               {[ 
                 { id: 'first_10k', name: 'Назбирай 10,000 монет', type: 'points', goal: 10000, reward: 5000 }, 
                 { id: 'lvl3', name: 'Досягни 3 рівня', type: 'level', goal: 3, reward: 25000 },
-                { id: 'ref_3', name: 'Запроси 3 друга', type: 'refs', goal: 3, reward: 200000 },
-                { id: 'ref_10', name: 'Запроси 10 друзів', type: 'refs', goal: 10, reward: 1000000 },
-                { id: 'ref_50', name: 'Запроси 50 друзів', type: 'refs', goal: 50, reward: 10000000 },
+                { id: 'ref_3', name: 'Запроси 3 активних друга', type: 'refs', goal: 3, reward: 200000 },
+                { id: 'ref_10', name: 'Запроси 10 активних друзів', type: 'refs', goal: 10, reward: 1000000 },
+                { id: 'ref_50', name: 'Запроси 50 активних друзів', type: 'refs', goal: 50, reward: 10000000 },
               ].map(ach => {
                 const isDone = userData.achievements?.includes(ach.id);
                 return (

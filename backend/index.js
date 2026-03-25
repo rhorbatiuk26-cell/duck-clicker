@@ -30,15 +30,13 @@ const User = sequelize.define('User', {
   telegram_id: { type: DataTypes.STRING, unique: true, primaryKey: true },
   first_name: { type: DataTypes.STRING, allowNull: false },
   level: { type: DataTypes.INTEGER, defaultValue: 1 },
-  
-  // 🔥 РОЗДІЛЯЄМО БАЛАНС І ДОСВІД 🔥
-  season_points: { type: DataTypes.BIGINT, defaultValue: 0 }, // Це гроші для покупок
-  total_earned: { type: DataTypes.BIGINT, defaultValue: 0 },    // Це сумарний рейтинг/досвід для ТОПу і Рівнів
-  
+  season_points: { type: DataTypes.BIGINT, defaultValue: 0 }, 
+  total_earned: { type: DataTypes.BIGINT, defaultValue: 0 },    
   squad_id: { type: DataTypes.STRING, allowNull: true },
   current_skin: { type: DataTypes.STRING, defaultValue: 'default' },
   unlocked_skins: { type: DataTypes.JSON, defaultValue: ['default'] },
   achievements: { type: DataTypes.JSON, defaultValue: [] },
+  businesses: { type: DataTypes.JSON, defaultValue: {} },
   referrer_id: { type: DataTypes.STRING, allowNull: true },
   referrer_rewarded: { type: DataTypes.BOOLEAN, defaultValue: false },
   referrals_count: { type: DataTypes.INTEGER, defaultValue: 0 },
@@ -72,6 +70,12 @@ const LEVEL_THRESHOLDS = [0, 10000, 100000, 500000, 2000000, 10000000, 50000000,
 const MAX_ENERGY = 2000;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
 
+const SHOP_ITEMS_DB = {
+  1: { reqRefs: 0 }, 2: { reqRefs: 0 }, 3: { reqRefs: 0 }, 4: { reqRefs: 0 }, 
+  5: { reqRefs: 0 }, 6: { reqRefs: 0 }, 7: { reqRefs: 0 },
+  8: { reqRefs: 3 }, 9: { reqRefs: 7 }
+};
+
 const sendTelegramMessage = async (chatId, text) => {
   const token = process.env.BOT_TOKEN;
   if (!token || !chatId) return;
@@ -87,20 +91,16 @@ const endSeasonAndNotify = async () => {
     const topSquad = await Squad.findOne({ order: [['total_points', 'DESC']] });
     let squadTopUsers = [];
     if (topSquad) squadTopUsers = await User.findAll({ where: { squad_id: topSquad.username }, order: [['total_earned', 'DESC']], limit: 10 });
-    
     let msg = `🚨 <b>СЕЗОН ЗАВЕРШЕНО! ЗВІТ ДЛЯ АДМІНА</b> 🚨\n\n🏆 <b>ТОП-11 ГРАВЦІВ:</b>\n`;
     if (topUsers.length === 0) msg += `Немає активних гравців.\n`;
     topUsers.forEach((u, i) => { msg += `${i+1}. <a href="tg://user?id=${u.telegram_id}">${u.first_name}</a> — Рейтинг: ${u.total_earned} 🏆\n`; });
-    
     msg += `\n🛡 <b>ТОП СКВАД:</b>\n`;
     if (topSquad) {
       msg += `<b>@${topSquad.name}</b> (Всього: ${topSquad.total_points} 🏆)\n\n🎖 <b>ТОП Гравці цього скваду:</b>\n`;
       squadTopUsers.forEach((u, i) => { msg += `${i+1}. <a href="tg://user?id=${u.telegram_id}">${u.first_name}</a> — ${u.total_earned} 🏆\n`; });
     } else { msg += `Немає створених сквадів.\n`; }
-    
     await sendTelegramMessage(adminId, msg);
-    // Обнуляємо Баланс І Загальний рейтинг
-    await User.update({ season_points: 0, total_earned: 0, level: 1, energy: MAX_ENERGY, passive_income: 0 }, { where: {} });
+    await User.update({ season_points: 0, total_earned: 0, level: 1, energy: MAX_ENERGY, passive_income: 0, businesses: {} }, { where: {} });
     await Squad.update({ total_points: 0 }, { where: {} });
     return { success: true };
   } catch (error) { return { error: "Внутрішня помилка" }; }
@@ -121,6 +121,7 @@ const checkReferralReward = async (user) => {
       if (referrer) { 
         referrer.season_points = Number(referrer.season_points) + 50000; 
         referrer.total_earned = Number(referrer.total_earned) + 50000;
+        referrer.referrals_count += 1; 
         await referrer.save(); 
       }
       user.referrer_rewarded = true; await user.save();
@@ -132,26 +133,16 @@ const calculateOfflineProgress = async (user) => {
   const now = new Date();
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const lastReset = new Date(user.last_boost_reset); lastReset.setHours(0, 0, 0, 0);
-  
-  if (today > lastReset) { 
-    user.free_energy_refills = 3; user.ad_energy_left = 3; user.ad_x5_left = 3; user.ad_autoclick_left = 3; user.ad_magnet_left = 3; user.last_boost_reset = now; 
-  }
-
+  if (today > lastReset) { user.free_energy_refills = 3; user.ad_energy_left = 3; user.ad_x5_left = 3; user.ad_autoclick_left = 3; user.ad_magnet_left = 3; user.last_boost_reset = now; }
   const secondsPassedEnergy = (now - new Date(user.last_energy_update)) / 1000;
-  if (secondsPassedEnergy > 0) {
-    user.energy = Math.min(MAX_ENERGY, user.energy + Math.floor(secondsPassedEnergy / 3));
-    user.last_energy_update = now;
-  }
-
+  if (secondsPassedEnergy > 0) { user.energy = Math.min(MAX_ENERGY, user.energy + Math.floor(secondsPassedEnergy / 3)); user.last_energy_update = now; }
   let passiveEarned = 0;
   let currentPassive = user.passive_income;
   if (user.auto_click_until && new Date(user.auto_click_until) > now) currentPassive += (7 * user.level);
-
   if (currentPassive > 0) {
     const secondsPassedPassive = (now - new Date(user.last_passive_collect)) / 1000;
     const cappedSeconds = Math.min(secondsPassedPassive, MAX_OFFLINE_SECONDS);
     passiveEarned = Math.floor(cappedSeconds * currentPassive);
-    
     if (passiveEarned > 0) {
       user.season_points = Number(user.season_points) + passiveEarned;
       user.total_earned = Number(user.total_earned) + passiveEarned;
@@ -162,7 +153,6 @@ const calculateOfflineProgress = async (user) => {
       if (user.squad_id) await Squad.increment('total_points', { by: passiveEarned, where: { username: user.squad_id } });
     }
   }
-
   let dailyAvailable = false;
   const lastClaim = user.last_daily_claim ? new Date(user.last_daily_claim) : null;
   if (!lastClaim) dailyAvailable = true;
@@ -175,17 +165,26 @@ const calculateOfflineProgress = async (user) => {
   return { user, passiveEarned, dailyAvailable };
 };
 
+const checkTelegramSubscription = (userId) => {
+  return new Promise((resolve) => {
+    const botToken = process.env.BOT_TOKEN; const channel = process.env.CHANNEL_USERNAME;
+    if (!botToken || !channel) return resolve(false);
+    https.get(`https://api.telegram.org/bot${botToken}/getChatMember?chat_id=${channel}&user_id=${userId}`, (res) => {
+      let data = ''; res.on('data', chunk => data += chunk);
+      res.on('end', () => { try { const result = JSON.parse(data); resolve(result.ok && ['member', 'administrator', 'creator'].includes(result.result.status)); } catch (e) { resolve(false); } });
+    }).on('error', () => resolve(false));
+  });
+};
+
 app.post('/api/user/init', async (req, res) => {
   const { telegram_id, first_name, start_param } = req.body;
   try {
     let user = await User.findByPk(String(telegram_id), { include: Squad });
     let referrer_id = null; let squad_to_join = null;
-    
     if (start_param) {
       if (start_param.startsWith('squad_')) squad_to_join = start_param.replace('squad_', '');
       else referrer_id = start_param;
     }
-
     if (!user) {
       let startingPoints = 0;
       if (referrer_id) {
@@ -194,29 +193,19 @@ app.post('/api/user/init', async (req, res) => {
         if (referrer) {
           referrer.season_points = Number(referrer.season_points) + 25000;
           referrer.total_earned = Number(referrer.total_earned) + 25000;
-          referrer.referrals_count += 1; 
           await referrer.save();
         }
       }
       user = await User.create({ telegram_id: String(telegram_id), first_name: first_name || 'Гравець', referrer_id: referrer_id ? String(referrer_id) : null, season_points: startingPoints, total_earned: startingPoints, last_energy_update: new Date(), last_passive_collect: new Date() });
-    } else {
-      // Фікс для старих гравців: прирівнюємо досвід до балансу, якщо він 0
-      if (Number(user.total_earned) === 0 && Number(user.season_points) > 0) {
-        user.total_earned = user.season_points;
-        await user.save();
-      }
     }
-
     if (squad_to_join && user.squad_id !== squad_to_join) {
       let squad = await Squad.findByPk(squad_to_join);
       if (!squad) squad = await Squad.create({ username: squad_to_join, name: `@${squad_to_join}` });
       if (user.squad_id) await Squad.decrement('members_count', { by: 1, where: { username: user.squad_id } });
       user.squad_id = squad_to_join; await user.save(); await Squad.increment('members_count', { by: 1, where: { username: squad_to_join } });
     }
-
     const progress = await calculateOfflineProgress(user);
     await progress.user.save(); await checkReferralReward(progress.user);
-
     const active_boost = progress.user.boost_until && new Date(progress.user.boost_until) > new Date();
     const auto_click = progress.user.auto_click_until && new Date(progress.user.auto_click_until) > new Date();
     res.json({ user: { ...progress.user.get(), active_boost, auto_click }, offline_earned: progress.passiveEarned, daily_available: progress.dailyAvailable });
@@ -231,23 +220,17 @@ app.post('/api/user/tap', async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Not found' });
     await calculateOfflineProgress(user);
     if (user.energy < actualTouches) return res.status(400).json({ error: 'Недостатньо енергії' });
-
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
     const points_to_add = (user.level * (active_boost ? user.boost_multiplier : 1)) * actualTouches;
-    
     user.season_points = Number(user.season_points) + points_to_add; 
     user.total_earned = Number(user.total_earned) + points_to_add; 
-    user.energy -= actualTouches; 
-    user.last_energy_update = new Date();
-    
+    user.energy -= actualTouches; user.last_energy_update = new Date();
     let new_level = 1;
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
     user.level = new_level > 10 ? 10 : new_level;
-
     await user.save();
     if (user.squad_id) await Squad.increment('total_points', { by: points_to_add, where: { username: user.squad_id } });
     await checkReferralReward(user);
-
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > new Date();
     res.json({ user: { ...user.get(), active_boost, auto_click } });
   } catch (error) { res.status(500).json({ error: 'Server error' }); }
@@ -258,30 +241,23 @@ app.post('/api/user/ad_boost', async (req, res) => {
   try {
     const user = await User.findByPk(String(telegram_id));
     await calculateOfflineProgress(user);
-    
     if (boost_type === 'energy') { 
       if (user.ad_energy_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
       user.energy = MAX_ENERGY; user.last_energy_update = new Date(); user.ad_energy_left -= 1;
-    } 
-    else if (boost_type === 'x5') { 
+    } else if (boost_type === 'x5') { 
       if (user.ad_x5_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
       user.boost_until = new Date(Date.now() + 5 * 60 * 1000); user.boost_multiplier = 5; user.ad_x5_left -= 1;
-    } 
-    else if (boost_type === 'autoclick') { 
+    } else if (boost_type === 'autoclick') { 
       if (user.ad_autoclick_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
       user.auto_click_until = new Date(Date.now() + 3 * 60 * 1000); user.ad_autoclick_left -= 1;
-    } 
-    else if (boost_type === 'magnet') { 
+    } else if (boost_type === 'magnet') { 
       if (user.ad_magnet_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
       user.season_points = Number(user.season_points) + 10000; user.total_earned = Number(user.total_earned) + 10000; user.ad_magnet_left -= 1;
-    } 
-    else return res.status(400).json({ error: 'Невідомий буст' });
-
+    } else return res.status(400).json({ error: 'Невідомий буст' });
     let new_level = 1;
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
     user.level = new_level > 10 ? 10 : new_level;
     await user.save();
-    
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > new Date();
     res.json({ user: { ...user.get(), active_boost, auto_click } });
@@ -313,12 +289,32 @@ app.post('/api/user/buy_skin', async (req, res) => {
     if (skins.includes(skin_id)) user.current_skin = skin_id;
     else {
       if (user.season_points < cost) return res.status(400).json({ error: 'Недостатньо монет' });
-      // Знімаємо гроші ТІЛЬКИ З БАЛАНСУ (season_points). total_earned залишається!
       user.season_points = Number(user.season_points) - cost; 
       skins.push(skin_id); user.unlocked_skins = skins; user.current_skin = skin_id;
     }
     await user.save(); res.json({ user: user.get() });
   } catch (error) { res.status(500).json({ error: 'Server error' }); }
+});
+
+app.post('/api/user/buy_upgrade', async (req, res) => {
+  const { telegram_id, item_id, cost, income_increase } = req.body;
+  try {
+    const user = await User.findByPk(String(telegram_id));
+    if (user.season_points < cost) return res.status(400).json({ error: 'Недостатньо' });
+    const requiredRefs = SHOP_ITEMS_DB[item_id]?.reqRefs || 0;
+    if (user.referrals_count < requiredRefs) {
+      return res.status(400).json({ error: `Треба запросити ще активних друзів. Мінімум: ${requiredRefs}` });
+    }
+    user.season_points = Number(user.season_points) - cost; 
+    user.passive_income += income_increase; 
+    let biz = user.businesses || {};
+    biz[item_id] = (biz[item_id] || 0) + 1;
+    user.businesses = biz;
+    user.changed('businesses', true);
+    user.last_passive_collect = new Date(); 
+    await user.save(); 
+    res.json({ user: user.get() });
+  } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
 app.post('/api/user/achievement', async (req, res) => {
@@ -327,11 +323,9 @@ app.post('/api/user/achievement', async (req, res) => {
     const user = await User.findByPk(String(telegram_id));
     let achs = user.achievements || [];
     if (achs.includes(achievement_id)) return res.status(400).json({ error: 'Вже отримано' });
-
     if (achievement_id === 'ref_3' && user.referrals_count < 3) return res.status(400).json({ error: 'Недостатньо друзів' });
     if (achievement_id === 'ref_10' && user.referrals_count < 10) return res.status(400).json({ error: 'Недостатньо друзів' });
     if (achievement_id === 'ref_50' && user.referrals_count < 50) return res.status(400).json({ error: 'Недостатньо друзів' });
-
     achs.push(achievement_id); user.achievements = achs; 
     user.season_points = Number(user.season_points) + reward; 
     user.total_earned = Number(user.total_earned) + reward; 
@@ -366,17 +360,6 @@ app.post('/api/user/free_energy', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-app.post('/api/user/buy_upgrade', async (req, res) => {
-  const { telegram_id, cost, income_increase } = req.body;
-  try {
-    const user = await User.findByPk(String(telegram_id));
-    if (user.season_points < cost) return res.status(400).json({ error: 'Недостатньо' });
-    // Знімаємо гроші тільки з балансу
-    user.season_points = Number(user.season_points) - cost; 
-    user.passive_income += income_increase; user.last_passive_collect = new Date(); await user.save(); res.json({ user: user.get() });
-  } catch (err) { res.status(500).json({ error: 'Server error' }); }
-});
-
 app.post('/api/user/claim_task', async (req, res) => {
   const { telegram_id, task_type } = req.body;
   try {
@@ -408,6 +391,7 @@ app.post('/api/user/reset', async (req, res) => {
     user.achievements = []; user.unlocked_skins = ['default']; user.current_skin = 'default'; user.squad_id = null; 
     user.task_tg_claimed = false; user.task_x_claimed = false; user.task_yt_claimed = false; user.task_ig_claimed = false;
     user.ad_energy_left = 3; user.ad_x5_left = 3; user.ad_autoclick_left = 3; user.ad_magnet_left = 3;
+    user.businesses = {}; 
     await user.save(); res.json({ user: user.get() });
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
@@ -421,7 +405,6 @@ app.post('/api/admin/end_season', async (req, res) => {
 app.get('/api/leaderboard', async (req, res) => {
   const { telegram_id } = req.query;
   try {
-    // В ТОП тепер беремо за параметром total_earned (Рейтинг)
     const topUsers = await User.findAll({ order: [['total_earned', 'DESC']], limit: 100, attributes: ['telegram_id', 'first_name', 'total_earned', 'level']});
     const topSquads = await Squad.findAll({ order: [['total_points', 'DESC']], limit: 50 });
     let currentUserRank = null; let currentUserData = null;
