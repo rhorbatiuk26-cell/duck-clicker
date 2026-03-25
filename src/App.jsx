@@ -36,7 +36,6 @@ const SKINS = [
   { id: 'rich', name: 'Золота Качка', img: 'https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f911.svg', cost: 10000000 },
 ];
 
-// 🔥 НОВИЙ ІДЕАЛЬНИЙ МАГАЗИВ 🔥
 const SHOP_ITEMS = [
   { id: 1, name: "Крихти Хліба", desc: "+1 монета / сек", baseCost: 500, income: 1, icon: "🍞" },
   { id: 2, name: "Стара Кепка", desc: "+6 монет / сек", baseCost: 2500, income: 6, icon: "🧢" },
@@ -177,7 +176,9 @@ function App() {
 
   const watchAdForBoost = (boostType) => {
     if (window.Adsgram) {
-      const AdController = window.Adsgram.init({ blockId: "1234567" }); 
+      // 🔥 ТВІЙ РЕАЛЬНИЙ ADSGRAM ID 🔥
+      const AdController = window.Adsgram.init({ blockId: "25905" }); 
+      
       AdController.show()
         .then(async (result) => {
           triggerNotification('success');

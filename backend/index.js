@@ -66,15 +66,16 @@ User.belongsTo(Squad, { foreignKey: 'squad_id' });
 
 sequelize.sync({ alter: true }).then(() => console.log('✅ База даних успішно оновлена!'));
 
+// 🔥 ХАРДКОРНІ РІВНІ 🔥
 const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
 const MAX_ENERGY = 2000;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
 
-// 🔥 Оновлена база бізнесів на сервері 🔥
+// 🔥 БАЗА БІЗНЕСІВ 🔥
 const SHOP_ITEMS_DB = {
   1: { reqRefs: 0 }, 2: { reqRefs: 0 }, 3: { reqRefs: 0 }, 4: { reqRefs: 0 }, 
   5: { reqRefs: 0 }, 6: { reqRefs: 0 }, 7: { reqRefs: 0 }, 8: { reqRefs: 0 },
-  9: { reqRefs: 3 }, // Крипто-Біржа
+  9: { reqRefs: 3 }, // Біржа
   10: { reqRefs: 7 } // Телеканал
 };
 
