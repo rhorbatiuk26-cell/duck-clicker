@@ -48,9 +48,14 @@ const User = sequelize.define('User', {
   last_passive_collect: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   daily_streak: { type: DataTypes.INTEGER, defaultValue: 0 },
   last_daily_claim: { type: DataTypes.DATE, allowNull: true },
-  task_tg_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   free_energy_refills: { type: DataTypes.INTEGER, defaultValue: 3 },
-  last_boost_reset: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+  last_boost_reset: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  
+  // ЗАВДАННЯ
+  task_tg_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
+  task_x_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
+  task_yt_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
+  task_ig_claimed: { type: DataTypes.BOOLEAN, defaultValue: false }
 });
 
 Squad.hasMany(User, { foreignKey: 'squad_id' });
@@ -99,7 +104,6 @@ const calculateOfflineProgress = async (user) => {
       let new_level = 1;
       for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.season_points >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
       user.level = new_level > 9 ? 9 : new_level;
-
       if (user.squad_id) await Squad.increment('total_points', { by: passiveEarned, where: { username: user.squad_id } });
     }
   }
@@ -133,38 +137,26 @@ app.post('/api/user/init', async (req, res) => {
   const { telegram_id, first_name, start_param } = req.body;
   try {
     let user = await User.findByPk(String(telegram_id), { include: Squad });
-    
-    // РОЗШИФРОВУЄМО START PARAM (Лінк)
-    let referrer_id = null;
-    let squad_to_join = null;
+    let referrer_id = null; let squad_to_join = null;
     
     if (start_param) {
-      if (start_param.startsWith('squad_')) {
-        squad_to_join = start_param.replace('squad_', ''); // Беремо назву скваду
-      } else {
-        referrer_id = start_param; // Якщо просто цифри — це звичайний друг
-      }
+      if (start_param.startsWith('squad_')) squad_to_join = start_param.replace('squad_', '');
+      else referrer_id = start_param;
     }
 
     if (!user) {
       user = await User.create({ 
-        telegram_id: String(telegram_id), 
-        first_name: first_name || 'Гравець', 
+        telegram_id: String(telegram_id), first_name: first_name || 'Гравець', 
         referrer_id: referrer_id ? String(referrer_id) : null, 
-        last_energy_update: new Date(), 
-        last_passive_collect: new Date() 
+        last_energy_update: new Date(), last_passive_collect: new Date() 
       });
     }
 
-    // АВТОМАТИЧНИЙ ВСТУП У СКВАД ЗА ЛІНКОМ
     if (squad_to_join && user.squad_id !== squad_to_join) {
       let squad = await Squad.findByPk(squad_to_join);
       if (!squad) squad = await Squad.create({ username: squad_to_join, name: `@${squad_to_join}` });
-      
       if (user.squad_id) await Squad.decrement('members_count', { by: 1, where: { username: user.squad_id } });
-      user.squad_id = squad_to_join;
-      await user.save();
-      await Squad.increment('members_count', { by: 1, where: { username: squad_to_join } });
+      user.squad_id = squad_to_join; await user.save(); await Squad.increment('members_count', { by: 1, where: { username: squad_to_join } });
     }
 
     const progress = await calculateOfflineProgress(user);
@@ -303,19 +295,32 @@ app.post('/api/user/buy_upgrade', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
+// 🔥 ОНОВЛЕНІ ЗАВДАННЯ (ДОДАНО СОЦМЕРЕЖІ) 🔥
 app.post('/api/user/claim_task', async (req, res) => {
   const { telegram_id, task_type } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
+    if (!user) return res.status(404).json({ error: 'Not found' });
+
+    if (user[`task_${task_type}_claimed`]) return res.status(400).json({ error: 'Вже виконано' });
+
+    let reward = 50000; // Стандартна нагорода за X, YT, IG
+    
     if (task_type === 'telegram') {
-      if (user.task_tg_claimed) return res.status(400).json({ error: 'Вже виконано' });
+      reward = 100000;
       const isSubscribed = await checkTelegramSubscription(telegram_id);
       if (!isSubscribed) return res.status(400).json({ error: 'not_subscribed' });
-      user.task_tg_claimed = true; user.season_points = Number(user.season_points) + 100000;
-      let new_level = 1; for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.season_points >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
-      user.level = new_level > 9 ? 9 : new_level;
-      await user.save(); await checkReferralReward(user); return res.json({ user: user.get() });
     }
+
+    user[`task_${task_type}_claimed`] = true; 
+    user.season_points = Number(user.season_points) + reward;
+    
+    let new_level = 1; 
+    for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.season_points >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
+    user.level = new_level > 9 ? 9 : new_level;
+    
+    await user.save(); await checkReferralReward(user); 
+    return res.json({ user: user.get(), reward });
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -324,10 +329,12 @@ app.post('/api/user/reset', async (req, res) => {
   try {
     const user = await User.findByPk(String(telegram_id));
     user.season_points = 0; user.level = 1; user.energy = MAX_ENERGY; user.passive_income = 0;
-    user.daily_streak = 0; user.task_tg_claimed = false; user.last_daily_claim = null;
-    user.free_energy_refills = 3; user.referrer_rewarded = false; user.boost_until = null;
-    user.auto_click_until = null; user.achievements = []; user.unlocked_skins = ['default'];
-    user.current_skin = 'default'; user.squad_id = null; await user.save(); res.json({ user: user.get() });
+    user.daily_streak = 0; user.last_daily_claim = null; user.free_energy_refills = 3; 
+    user.referrer_rewarded = false; user.boost_until = null; user.auto_click_until = null; 
+    user.achievements = []; user.unlocked_skins = ['default']; user.current_skin = 'default'; user.squad_id = null; 
+    // Скидаємо завдання
+    user.task_tg_claimed = false; user.task_x_claimed = false; user.task_yt_claimed = false; user.task_ig_claimed = false;
+    await user.save(); res.json({ user: user.get() });
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
