@@ -7,7 +7,6 @@ const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ';
 const BOT_USERNAME = 'GoldDuckTap_bot';
 const ADMIN_TELEGRAM_ID = '1057689349'; 
 
-// 🔥 НОВІ ХАРДКОРНІ РІВНІ 🔥
 const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
 const MAX_ENERGY = 2000;
 const levelNames = ["Бродяга", "Новачок", "Шукач", "Хуліган", "Бізнесмен", "Бос", "Магнат", "Олігарх", "Божество", "Творець"];
@@ -37,16 +36,18 @@ const SKINS = [
   { id: 'rich', name: 'Золота Качка', img: 'https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f911.svg', cost: 10000000 },
 ];
 
+// 🔥 НОВИЙ ІДЕАЛЬНИЙ МАГАЗИВ 🔥
 const SHOP_ITEMS = [
-  { id: 1, name: "Стара Кепка", desc: "+1 монета / сек", baseCost: 5000, income: 1, icon: "🧢" },
-  { id: 2, name: "Гітара Бродяги", desc: "+3 монети / сек", baseCost: 25000, income: 3, icon: "🎸" },
-  { id: 3, name: "Кіоск з Шаурмою", desc: "+10 монет / сек", baseCost: 100000, income: 10, icon: "🌮" },
-  { id: 4, name: "Крипто-Ферма", desc: "+40 монет / сек", baseCost: 500000, income: 40, icon: "💻" },
-  { id: 5, name: "Мережа Банків", desc: "+150 монет / сек", baseCost: 2500000, income: 150, icon: "🏦" },
-  { id: 6, name: "Качиний ШІ", desc: "+500 монет / сек", baseCost: 10000000, income: 500, icon: "🤖" },
-  { id: 7, name: "Місія на Марс", desc: "+2,000 монет / сек", baseCost: 50000000, income: 2000, icon: "🚀" },
-  { id: 8, name: "Крипто-Біржа", desc: "+10,000 монет / сек", baseCost: 15000000, income: 10000, icon: "📈", reqRefs: 3 },
-  { id: 9, name: "Телеканал", desc: "+100,000 монет / сек", baseCost: 100000000, income: 100000, icon: "📺", reqRefs: 7 },
+  { id: 1, name: "Крихти Хліба", desc: "+1 монета / сек", baseCost: 500, income: 1, icon: "🍞" },
+  { id: 2, name: "Стара Кепка", desc: "+6 монет / сек", baseCost: 2500, income: 6, icon: "🧢" },
+  { id: 3, name: "Гітара Бродяги", desc: "+30 монет / сек", baseCost: 10000, income: 30, icon: "🎸" },
+  { id: 4, name: "Кіоск з Шаурмою", desc: "+160 монет / сек", baseCost: 50000, income: 160, icon: "🌮" },
+  { id: 5, name: "Крипто-Ферма", desc: "+900 монет / сек", baseCost: 250000, income: 900, icon: "💻" },
+  { id: 6, name: "Мережа Банків", desc: "+6,000 монет / сек", baseCost: 1500000, income: 6000, icon: "🏦" },
+  { id: 7, name: "Качиний ШІ", desc: "+45,000 монет / сек", baseCost: 10000000, income: 45000, icon: "🤖" },
+  { id: 8, name: "Місія на Марс", desc: "+250,000 монет / сек", baseCost: 50000000, income: 250000, icon: "🚀" },
+  { id: 9, name: "Крипто-Біржа", desc: "+600,000 монет / сек", baseCost: 100000000, income: 600000, icon: "📈", reqRefs: 3 },
+  { id: 10, name: "Телеканал", desc: "+3,500,000 монет / сек", baseCost: 500000000, income: 3500000, icon: "📺", reqRefs: 7 },
 ];
 
 function App() {
@@ -177,7 +178,6 @@ function App() {
   const watchAdForBoost = (boostType) => {
     if (window.Adsgram) {
       const AdController = window.Adsgram.init({ blockId: "1234567" }); 
-      
       AdController.show()
         .then(async (result) => {
           triggerNotification('success');

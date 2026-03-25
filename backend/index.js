@@ -66,15 +66,16 @@ User.belongsTo(Squad, { foreignKey: 'squad_id' });
 
 sequelize.sync({ alter: true }).then(() => console.log('✅ База даних успішно оновлена!'));
 
-// 🔥 НОВІ ХАРДКОРНІ РІВНІ 🔥
 const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
 const MAX_ENERGY = 2000;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
 
+// 🔥 Оновлена база бізнесів на сервері 🔥
 const SHOP_ITEMS_DB = {
   1: { reqRefs: 0 }, 2: { reqRefs: 0 }, 3: { reqRefs: 0 }, 4: { reqRefs: 0 }, 
-  5: { reqRefs: 0 }, 6: { reqRefs: 0 }, 7: { reqRefs: 0 },
-  8: { reqRefs: 3 }, 9: { reqRefs: 7 }
+  5: { reqRefs: 0 }, 6: { reqRefs: 0 }, 7: { reqRefs: 0 }, 8: { reqRefs: 0 },
+  9: { reqRefs: 3 }, // Крипто-Біржа
+  10: { reqRefs: 7 } // Телеканал
 };
 
 const sendTelegramMessage = async (chatId, text) => {
@@ -189,7 +190,7 @@ app.post('/api/user/init', async (req, res) => {
     if (!user) {
       let startingPoints = 0;
       if (referrer_id) {
-        startingPoints = 10000; // 🔥 ЗМЕНШЕНИЙ СТАРТОВИЙ БОНУС 🔥
+        startingPoints = 10000; 
         const referrer = await User.findByPk(String(referrer_id));
         if (referrer) {
           referrer.season_points = Number(referrer.season_points) + 10000;
@@ -253,7 +254,7 @@ app.post('/api/user/ad_boost', async (req, res) => {
       user.auto_click_until = new Date(Date.now() + 3 * 60 * 1000); user.ad_autoclick_left -= 1;
     } else if (boost_type === 'magnet') { 
       if (user.ad_magnet_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
-      user.season_points = Number(user.season_points) + 5000; // 🔥 ЗМЕНШЕНИЙ МАГНІТ 🔥
+      user.season_points = Number(user.season_points) + 5000;
       user.total_earned = Number(user.total_earned) + 5000; 
       user.ad_magnet_left -= 1;
     } else return res.status(400).json({ error: 'Невідомий буст' });
@@ -369,15 +370,12 @@ app.post('/api/user/claim_task', async (req, res) => {
     const user = await User.findByPk(String(telegram_id));
     if (!user) return res.status(404).json({ error: 'Not found' });
     if (user[`task_${task_type}_claimed`]) return res.status(400).json({ error: 'Вже виконано' });
-    
-    // 🔥 ЗМЕНШЕНІ НАГОРОДИ ЗА ЗАВДАННЯ 🔥
     let reward = 10000; 
     if (task_type === 'telegram') {
       reward = 25000;
       const isSubscribed = await checkTelegramSubscription(telegram_id);
       if (!isSubscribed) return res.status(400).json({ error: 'not_subscribed' });
     }
-    
     user[`task_${task_type}_claimed`] = true; 
     user.season_points = Number(user.season_points) + reward;
     user.total_earned = Number(user.total_earned) + reward;
