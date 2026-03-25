@@ -4,6 +4,7 @@ import axios from 'axios';
 const SERVER_URL = 'https://duck-clicker-production.up.railway.app/api';
 const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ'; 
 
+// 🔥 ТВІЙ БОТ ТА ID 🔥
 const BOT_USERNAME = 'GoldDuckTap_bot';
 const ADMIN_TELEGRAM_ID = '1057689349'; 
 
@@ -12,16 +13,16 @@ const MAX_ENERGY = 2000;
 const levelNames = ["Бродяга", "Новачок", "Шукач", "Хуліган", "Бізнесмен", "Бос", "Магнат", "Олігарх", "Божество", "Творець"];
 
 const LEVEL_SKINS = [
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f986.svg", // 1
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f424.svg", // 2
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f425.svg", // 3
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f426.svg", // 4
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f989.svg", // 5
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f985.svg", // 6
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a2.svg", // 7
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a9.svg", // 8
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f99a.svg", // 9
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f409.svg", // 10
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f986.svg", // 1: Качка
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f424.svg", // 2: Курчатко
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f425.svg", // 3: Пташеня
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f426.svg", // 4: Пташка
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f989.svg", // 5: Сова
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f985.svg", // 6: Орел
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a2.svg", // 7: Лебідь
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a9.svg", // 8: Фламінго
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f99a.svg", // 9: Павич
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f409.svg", // 10: Дракон
 ];
 
 const getLeague = (lvl) => {
@@ -36,20 +37,21 @@ const SKINS = [
   { id: 'rich', name: 'Золота Качка', img: 'https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f911.svg', cost: 10000000 },
 ];
 
+// 🔥 ІДЕАЛЬНА ЕКОНОМІКА БІЗНЕСІВ 🔥
 const SHOP_ITEMS = [
   { id: 1, name: "Стара Кепка", desc: "+1 монета / сек", cost: 5000, income: 1, icon: "🧢" },
-  { id: 2, name: "Гітара Бродяги", desc: "+5 монет / сек", cost: 30000, income: 5, icon: "🎸" },
-  { id: 3, name: "Кіоск з Шаурмою", desc: "+20 монет / сек", cost: 150000, income: 20, icon: "🌮" },
-  { id: 4, name: "Крипто-Ферма", desc: "+100 монет / сек", cost: 1000000, income: 100, icon: "💻" },
-  { id: 5, name: "Мережа Банків", desc: "+1,000 монет / сек", cost: 10000000, income: 1000, icon: "🏦" },
-  { id: 6, name: "Качиний ШІ", desc: "+5,000 монет / сек", cost: 50000000, income: 5000, icon: "🤖" },
-  { id: 7, name: "Місія на Марс", desc: "+50,000 монет / сек", cost: 500000000, income: 50000, icon: "🚀" },
+  { id: 2, name: "Гітара Бродяги", desc: "+5 монет / сек", cost: 20000, income: 5, icon: "🎸" },
+  { id: 3, name: "Кіоск з Шаурмою", desc: "+30 монет / сек", cost: 100000, income: 30, icon: "🌮" },
+  { id: 4, name: "Крипто-Ферма", desc: "+150 монет / сек", cost: 400000, income: 150, icon: "💻" },
+  { id: 5, name: "Мережа Банків", desc: "+1,000 монет / сек", cost: 2000000, income: 1000, icon: "🏦" },
+  { id: 6, name: "Качиний ШІ", desc: "+5,000 монет / сек", cost: 7500000, income: 5000, icon: "🤖" },
+  { id: 7, name: "Місія на Марс", desc: "+50,000 монет / сек", cost: 50000000, income: 50000, icon: "🚀" },
 ];
 
 function App() {
   const [userData, setUserData] = useState(null);
-  const [points, setPoints] = useState(0);        // Це БАЛАНС
-  const [totalEarned, setTotalEarned] = useState(0); // Це РЕЙТИНГ
+  const [points, setPoints] = useState(0);
+  const [totalEarned, setTotalEarned] = useState(0);
   const [level, setLevel] = useState(1);
   const [energy, setEnergy] = useState(MAX_ENERGY);
   const [passiveIncome, setPassiveIncome] = useState(0);
@@ -93,7 +95,7 @@ function App() {
         const data = response.data;
         setUserData(data.user); 
         setPoints(Number(data.user.season_points));
-        setTotalEarned(Number(data.user.total_earned)); // Синхронізуємо рейтинг
+        setTotalEarned(Number(data.user.total_earned));
         setLevel(Number(data.user.level)); setEnergy(Number(data.user.energy));
         setPassiveIncome(Number(data.user.passive_income));
         
@@ -110,7 +112,6 @@ function App() {
     if (totalIncomePerSec <= 0) return;
 
     const interval = setInterval(() => {
-      // Додаємо пасив і до балансу, і до рейтингу
       setTotalEarned(prev => {
         const newTotal = prev + totalIncomePerSec;
         let calcLevel = 1;
@@ -149,7 +150,6 @@ function App() {
     const tapValue = userData.active_boost ? level * userData.boost_multiplier : level;
     const totalPointsToAdd = tapValue * actualTouches;
 
-    // Додаємо тапи і до балансу, і до рейтингу
     setTotalEarned(prev => {
       const newTotal = prev + totalPointsToAdd;
       let calcLevel = 1;
@@ -203,7 +203,6 @@ function App() {
     triggerNotification('success');
     try {
       const response = await axios.post(`${SERVER_URL}/user/buy_upgrade`, { telegram_id: userData.telegram_id, cost: item.cost, income_increase: item.income });
-      // Після покупки оновлюємо тільки баланс (totalEarned залишається тим самим)
       setPoints(Number(response.data.user.season_points)); 
       setPassiveIncome(Number(response.data.user.passive_income));
     } catch (err) {}
@@ -237,7 +236,6 @@ function App() {
 
   const claimAchievement = async (id, reward, goal, type = 'points') => {
     if (userData.achievements?.includes(id)) return;
-    // Орієнтуємось на totalEarned для ачівок по очках
     if (type === 'points' && totalEarned < goal) { tg.showAlert("Ще не назбирав монет!"); return; }
     if (type === 'level' && level < goal) { tg.showAlert("Ще не досяг рівня!"); return; }
     if (type === 'refs' && (userData.referrals_count || 0) < goal) { tg.showAlert(`Тобі потрібно запросити ${goal} друзів! Запрошено: ${userData.referrals_count || 0}`); return; }
@@ -413,7 +411,6 @@ function App() {
               <div className="flex justify-between items-center mb-1"><span className="text-xs font-bold text-blue-300">⚡ Енергія</span><span className="text-xs font-bold text-blue-300">{Math.floor(energy)} / {MAX_ENERGY}</span></div>
               <div className="w-full bg-gray-900 rounded-full h-2 mb-4 overflow-hidden border border-gray-950"><div className="bg-blue-500 h-full transition-all duration-300 rounded-full" style={{ width: `${energyPercent}%` }}></div></div>
               <div className="flex justify-between items-center mb-2"><span className="font-black text-white">Рівень {level} <span className="text-gray-500 text-xs">({levelNames[level-1]})</span></span></div>
-              {/* Прогрес-бар тепер використовує totalEarned */}
               <div className="w-full bg-gray-900 rounded-full h-4 overflow-hidden border border-gray-950 shadow-inner relative"><div className="bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-300 h-full transition-all duration-300 rounded-full" style={{ width: `${Math.min(level < 10 ? ((totalEarned - LEVEL_THRESHOLDS[level-1]) / (LEVEL_THRESHOLDS[level] - LEVEL_THRESHOLDS[level-1])) * 100 : 100, 100)}%` }}></div></div>
             </div>
           </div>
@@ -633,7 +630,6 @@ function App() {
                         <p className="text-[10px] text-gray-400">Рівень {player.level}</p>
                       </div>
                     </div>
-                    {/* Показуємо Загальний Рейтинг (total_earned) в ТОПі */}
                     <div className="font-black text-yellow-400">{player.total_earned} 🏆</div>
                   </div>
                 ))
