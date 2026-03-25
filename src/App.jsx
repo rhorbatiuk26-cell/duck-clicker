@@ -8,7 +8,6 @@ const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ';
 const BOT_USERNAME = 'GoldDuckTap_bot';
 const ADMIN_TELEGRAM_ID = '1057689349'; 
 
-// 🔥 10 РІВНІВ (До 50 Мільярдів) 🔥
 const LEVEL_THRESHOLDS = [0, 10000, 100000, 500000, 2000000, 10000000, 50000000, 500000000, 5000000000, 50000000000];
 const MAX_ENERGY = 2000;
 const levelNames = ["Бродяга", "Новачок", "Шукач", "Хуліган", "Бізнесмен", "Бос", "Магнат", "Олігарх", "Божество", "Творець"];
@@ -177,7 +176,7 @@ function App() {
           setUserData(res.data.user); setPoints(Number(res.data.user.season_points));
           if (boostType === 'energy') setEnergy(MAX_ENERGY);
           tg.showAlert("Успішно! Буст активовано 🚀");
-        } catch (err) { tg.showAlert("Помилка активації"); }
+        } catch (err) { tg.showAlert(err.response?.data?.error || "Помилка активації"); }
       }
     });
   };
@@ -228,8 +227,6 @@ function App() {
 
   const claimAchievement = async (id, reward, goal, type = 'points') => {
     if (userData.achievements?.includes(id)) return;
-    
-    // Перевірки перед відправкою на сервер
     if (type === 'points' && points < goal) { tg.showAlert("Ще не назбирав монет!"); return; }
     if (type === 'level' && level < goal) { tg.showAlert("Ще не досяг рівня!"); return; }
     if (type === 'refs' && (userData.referrals_count || 0) < goal) { tg.showAlert(`Тобі потрібно запросити ${goal} друзів! Запрошено: ${userData.referrals_count || 0}`); return; }
@@ -458,19 +455,23 @@ function App() {
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl flex flex-col items-center text-center gap-2">
                 <div className="text-2xl">🔋</div><h3 className="font-bold text-xs text-white">Відновити Енергію</h3>
-                <button onClick={() => watchAdForBoost('energy')} className="w-full bg-blue-500 text-white text-xs font-bold py-2 rounded-lg active:scale-95">Дивитись</button>
+                <p className="text-[10px] text-gray-400">{userData.ad_energy_left}/3 доступно</p>
+                <button onClick={() => userData.ad_energy_left > 0 && watchAdForBoost('energy')} className={`w-full text-white text-xs font-bold py-2 rounded-lg ${userData.ad_energy_left > 0 ? 'bg-blue-500 active:scale-95' : 'bg-gray-600'}`}>{userData.ad_energy_left > 0 ? 'Дивитись' : 'Завтра'}</button>
               </div>
               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl flex flex-col items-center text-center gap-2">
                 <div className="text-2xl">🚀</div><h3 className="font-bold text-xs text-white">Множник x5 (5 хв)</h3>
-                <button onClick={() => watchAdForBoost('x5')} className="w-full bg-orange-500 text-white text-xs font-bold py-2 rounded-lg active:scale-95">Дивитись</button>
+                <p className="text-[10px] text-gray-400">{userData.ad_x5_left}/3 доступно</p>
+                <button onClick={() => userData.ad_x5_left > 0 && watchAdForBoost('x5')} className={`w-full text-white text-xs font-bold py-2 rounded-lg ${userData.ad_x5_left > 0 ? 'bg-orange-500 active:scale-95' : 'bg-gray-600'}`}>{userData.ad_x5_left > 0 ? 'Дивитись' : 'Завтра'}</button>
               </div>
               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl flex flex-col items-center text-center gap-2">
                 <div className="text-2xl">🤖</div><h3 className="font-bold text-xs text-white">Автоклікер (3 хв)</h3>
-                <button onClick={() => watchAdForBoost('autoclick')} className="w-full bg-purple-500 text-white text-xs font-bold py-2 rounded-lg active:scale-95">Дивитись</button>
+                <p className="text-[10px] text-gray-400">{userData.ad_autoclick_left}/3 доступно</p>
+                <button onClick={() => userData.ad_autoclick_left > 0 && watchAdForBoost('autoclick')} className={`w-full text-white text-xs font-bold py-2 rounded-lg ${userData.ad_autoclick_left > 0 ? 'bg-purple-500 active:scale-95' : 'bg-gray-600'}`}>{userData.ad_autoclick_left > 0 ? 'Дивитись' : 'Завтра'}</button>
               </div>
               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl flex flex-col items-center text-center gap-2">
                 <div className="text-2xl">🧲</div><h3 className="font-bold text-xs text-white">+10,000 Монет</h3>
-                <button onClick={() => watchAdForBoost('magnet')} className="w-full bg-green-500 text-white text-xs font-bold py-2 rounded-lg active:scale-95">Дивитись</button>
+                <p className="text-[10px] text-gray-400">{userData.ad_magnet_left}/3 доступно</p>
+                <button onClick={() => userData.ad_magnet_left > 0 && watchAdForBoost('magnet')} className={`w-full text-white text-xs font-bold py-2 rounded-lg ${userData.ad_magnet_left > 0 ? 'bg-green-500 active:scale-95' : 'bg-gray-600'}`}>{userData.ad_magnet_left > 0 ? 'Дивитись' : 'Завтра'}</button>
               </div>
             </div>
 
@@ -494,7 +495,6 @@ function App() {
               </div>
             </div>
 
-            {/* 🔥 РОЗШИРЕНА РЕФЕРАЛКА 🔥 */}
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🎯 Друзі (Запрошено: {userData.referrals_count || 0})</h2>
             <div className="space-y-3 mb-6">
               <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex flex-col gap-3">

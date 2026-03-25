@@ -38,7 +38,7 @@ const User = sequelize.define('User', {
   
   referrer_id: { type: DataTypes.STRING, allowNull: true },
   referrer_rewarded: { type: DataTypes.BOOLEAN, defaultValue: false },
-  referrals_count: { type: DataTypes.INTEGER, defaultValue: 0 }, // 🔥 ЛІЧИЛЬНИК ДРУЗІВ 🔥
+  referrals_count: { type: DataTypes.INTEGER, defaultValue: 0 },
 
   boost_until: { type: DataTypes.DATE, allowNull: true },
   boost_multiplier: { type: DataTypes.INTEGER, defaultValue: 1 },
@@ -49,8 +49,15 @@ const User = sequelize.define('User', {
   last_passive_collect: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   daily_streak: { type: DataTypes.INTEGER, defaultValue: 0 },
   last_daily_claim: { type: DataTypes.DATE, allowNull: true },
-  free_energy_refills: { type: DataTypes.INTEGER, defaultValue: 3 },
   last_boost_reset: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  
+  // 🔥 ЛІМІТИ НА РЕКЛАМУ 🔥
+  free_energy_refills: { type: DataTypes.INTEGER, defaultValue: 3 }, // звичайне відновлення
+  ad_energy_left: { type: DataTypes.INTEGER, defaultValue: 3 },
+  ad_x5_left: { type: DataTypes.INTEGER, defaultValue: 3 },
+  ad_autoclick_left: { type: DataTypes.INTEGER, defaultValue: 3 },
+  ad_magnet_left: { type: DataTypes.INTEGER, defaultValue: 3 },
+
   task_tg_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   task_x_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   task_yt_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
@@ -62,7 +69,6 @@ User.belongsTo(Squad, { foreignKey: 'squad_id' });
 
 sequelize.sync({ alter: true }).then(() => console.log('✅ База даних успішно оновлена!'));
 
-// 🔥 НОВІ ХАРДКОРНІ 10 РІВНІВ (до 50 Мільярдів) 🔥
 const LEVEL_THRESHOLDS = [0, 10000, 100000, 500000, 2000000, 10000000, 50000000, 500000000, 5000000000, 50000000000];
 const MAX_ENERGY = 2000;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
@@ -71,9 +77,7 @@ const sendTelegramMessage = async (chatId, text) => {
   const token = process.env.BOT_TOKEN;
   if (!token || !chatId) return;
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  try {
-    await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'HTML' }) });
-  } catch (e) {}
+  try { await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'HTML' }) }); } catch (e) {}
 };
 
 const endSeasonAndNotify = async () => {
@@ -121,7 +125,16 @@ const calculateOfflineProgress = async (user) => {
   const now = new Date();
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const lastReset = new Date(user.last_boost_reset); lastReset.setHours(0, 0, 0, 0);
-  if (today > lastReset) { user.free_energy_refills = 3; user.last_boost_reset = now; }
+  
+  // 🔥 ОНОВЛЕННЯ ЛІМІТІВ РЕКЛАМИ ЩОДНЯ 🔥
+  if (today > lastReset) { 
+    user.free_energy_refills = 3; 
+    user.ad_energy_left = 3;
+    user.ad_x5_left = 3;
+    user.ad_autoclick_left = 3;
+    user.ad_magnet_left = 3;
+    user.last_boost_reset = now; 
+  }
 
   const secondsPassedEnergy = (now - new Date(user.last_energy_update)) / 1000;
   if (secondsPassedEnergy > 0) {
@@ -184,17 +197,15 @@ app.post('/api/user/init', async (req, res) => {
 
     if (!user) {
       let startingPoints = 0;
-      // 🔥 WIN-WIN РЕФЕРАЛКА 🔥
       if (referrer_id) {
-        startingPoints = 25000; // Бонус новачку
+        startingPoints = 25000; 
         const referrer = await User.findByPk(String(referrer_id));
         if (referrer) {
-          referrer.season_points = Number(referrer.season_points) + 25000; // Бонус власнику лінка
-          referrer.referrals_count += 1; // Збільшуємо лічильник друзів
+          referrer.season_points = Number(referrer.season_points) + 25000;
+          referrer.referrals_count += 1; 
           await referrer.save();
         }
       }
-      
       user = await User.create({ telegram_id: String(telegram_id), first_name: first_name || 'Гравець', referrer_id: referrer_id ? String(referrer_id) : null, season_points: startingPoints, last_energy_update: new Date(), last_passive_collect: new Date() });
     }
 
@@ -241,20 +252,36 @@ app.post('/api/user/tap', async (req, res) => {
   } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
 
+// 🔥 ОНОВЛЕНА ЛОГІКА РЕКЛАМИ З ЛІМІТАМИ 🔥
 app.post('/api/user/ad_boost', async (req, res) => {
   const { telegram_id, boost_type } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
     await calculateOfflineProgress(user);
-    if (boost_type === 'energy') { user.energy = MAX_ENERGY; user.last_energy_update = new Date(); } 
-    else if (boost_type === 'x5') { user.boost_until = new Date(Date.now() + 5 * 60 * 1000); user.boost_multiplier = 5; } 
-    else if (boost_type === 'autoclick') { user.auto_click_until = new Date(Date.now() + 3 * 60 * 1000); } 
-    else if (boost_type === 'magnet') { user.season_points = Number(user.season_points) + 10000; } 
+    
+    if (boost_type === 'energy') { 
+      if (user.ad_energy_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
+      user.energy = MAX_ENERGY; user.last_energy_update = new Date(); user.ad_energy_left -= 1;
+    } 
+    else if (boost_type === 'x5') { 
+      if (user.ad_x5_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
+      user.boost_until = new Date(Date.now() + 5 * 60 * 1000); user.boost_multiplier = 5; user.ad_x5_left -= 1;
+    } 
+    else if (boost_type === 'autoclick') { 
+      if (user.ad_autoclick_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
+      user.auto_click_until = new Date(Date.now() + 3 * 60 * 1000); user.ad_autoclick_left -= 1;
+    } 
+    else if (boost_type === 'magnet') { 
+      if (user.ad_magnet_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
+      user.season_points = Number(user.season_points) + 10000; user.ad_magnet_left -= 1;
+    } 
     else return res.status(400).json({ error: 'Невідомий буст' });
+
     let new_level = 1;
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.season_points >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
     user.level = new_level > 10 ? 10 : new_level;
     await user.save();
+    
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > new Date();
     res.json({ user: { ...user.get(), active_boost, auto_click } });
@@ -299,7 +326,6 @@ app.post('/api/user/achievement', async (req, res) => {
     let achs = user.achievements || [];
     if (achs.includes(achievement_id)) return res.status(400).json({ error: 'Вже отримано' });
 
-    // 🔥 ПЕРЕВІРКА АЧІВОК НА ДРУЗІВ 🔥
     if (achievement_id === 'ref_3' && user.referrals_count < 3) return res.status(400).json({ error: 'Недостатньо друзів' });
     if (achievement_id === 'ref_10' && user.referrals_count < 10) return res.status(400).json({ error: 'Недостатньо друзів' });
     if (achievement_id === 'ref_50' && user.referrals_count < 50) return res.status(400).json({ error: 'Недостатньо друзів' });
@@ -372,6 +398,7 @@ app.post('/api/user/reset', async (req, res) => {
     user.referrer_rewarded = false; user.boost_until = null; user.auto_click_until = null; 
     user.achievements = []; user.unlocked_skins = ['default']; user.current_skin = 'default'; user.squad_id = null; 
     user.task_tg_claimed = false; user.task_x_claimed = false; user.task_yt_claimed = false; user.task_ig_claimed = false;
+    user.ad_energy_left = 3; user.ad_x5_left = 3; user.ad_autoclick_left = 3; user.ad_magnet_left = 3;
     await user.save(); res.json({ user: user.get() });
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
