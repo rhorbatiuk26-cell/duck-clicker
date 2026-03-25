@@ -6,7 +6,7 @@ const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ';
 
 // 🔥 ТВІЙ БОТ ТА ID 🔥
 const BOT_USERNAME = 'GoldDuckTap_bot';
-const ADMIN_TELEGRAM_ID = '1057689349'; 
+const ADMIN_TELEGRAM_ID = '1057689349'; // Твій ID вшито!
 
 const LEVEL_THRESHOLDS = [0, 5000, 25000, 100000, 500000, 2000000, 25000000, 100000000, 1000000000];
 const MAX_ENERGY = 2000;
@@ -270,19 +270,21 @@ function App() {
           const res = await axios.post(`${SERVER_URL}/user/reset`, { telegram_id: userData.telegram_id });
           setUserData(res.data.user); setPoints(0); setLevel(1); setEnergy(MAX_ENERGY); setPassiveIncome(0);
           triggerNotification('success'); setActiveTab('tap'); setShowSettings(false);
+          // Скидаємо прапорець онбордингу, щоб показати його знову
+          localStorage.removeItem('onboarding_done');
+          setShowOnboarding(true); setOnboardingStep(0);
         } catch (err) {}
       }
     });
   };
 
-  // 🔥 АДМІН-ФУНКЦІЯ: ТЕСТОВЕ ЗАВЕРШЕННЯ СЕЗОНУ 🔥
   const endSeasonAdmin = async () => {
     tg.showConfirm("АДМІН! Завершити сезон прямо зараз? (Відправить тобі звіт у бот і обнулить всіх)", async (agreed) => {
       if (agreed) {
         try {
           await axios.post(`${SERVER_URL}/admin/end_season`, { telegram_id: userData.telegram_id });
           tg.showAlert("✅ СЕЗОН УСПІШНО ЗАВЕРШЕНО! Перевір повідомлення від бота.");
-          window.location.reload(); // Перезавантажуємо гру для скидання
+          window.location.reload(); 
         } catch (err) { tg.showAlert("Помилка Адмінки. Перевір ADMIN_TELEGRAM_ID в Railway."); }
       }
     });
@@ -315,18 +317,25 @@ function App() {
 
   if (!user || !userData) return <div className="h-screen bg-gray-950 flex flex-col items-center justify-center font-bold text-yellow-400">Завантаження...</div>;
 
+  // 🔥 ОНБОРДИНГ З 4 СЛАЙДАМИ 🔥
   if (showOnboarding) {
     return (
       <div className="h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center select-none text-white z-[100] relative">
         {onboardingStep === 0 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">🦆</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Привіт в Gold Duck!</h2><p className="text-gray-300 mb-8">Це не просто клікер. Це чесна гра, де ми віддаємо <span className="font-bold text-white">15% доходу</span> лідерам наприкінці сезону.</p></div> )}
-        {onboardingStep === 1 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">🛒</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Пасивний дохід</h2><p className="text-gray-300 mb-8">Зароблені монети витрачай на бізнеси. Качка буде працювати і приносити гроші, навіть коли ти офлайн (до 3-х годин).</p></div> )}
-        {onboardingStep === 2 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">🛡️</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Сквади (Команди)</h2><p className="text-gray-300 mb-8">Об'єднуйся в команди з друзями! Якщо твій сквад переможе, всі його учасники отримають величезний бонус.</p></div> )}
-        <button onClick={() => { triggerHaptic('light'); if (onboardingStep < 2) setOnboardingStep(prev => prev + 1); else finishOnboarding(); }} className="bg-yellow-500 text-gray-900 font-black text-xl py-4 w-full rounded-2xl active:scale-95 absolute bottom-10 left-6 right-6"> {onboardingStep < 2 ? 'Далі ➔' : 'Почати Гру! 🚀'} </button>
+        
+        {/* НОВИЙ СЛАЙД ПРО ДОНАТИ */}
+        {onboardingStep === 1 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">💸</div><h2 className="text-3xl font-black text-green-400 mb-4">Жодних Донатів!</h2><p className="text-gray-300 mb-8">Найголовніший донат — це твій час! Ти не платиш нічого, але маєш шанс виграти <span className="font-bold text-white">круті призи щомісяця</span>. Більше граєш — більше отримуєш!</p></div> )}
+        
+        {onboardingStep === 2 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">🛒</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Пасивний дохід</h2><p className="text-gray-300 mb-8">Зароблені монети витрачай на бізнеси. Качка буде працювати і приносити гроші, навіть коли ти офлайн (до 3-х годин).</p></div> )}
+        {onboardingStep === 3 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">🛡️</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Сквади (Команди)</h2><p className="text-gray-300 mb-8">Об'єднуйся в команди з друзями! Якщо твій сквад переможе, всі його учасники отримають величезний бонус.</p></div> )}
+        
+        <button onClick={() => { triggerHaptic('light'); if (onboardingStep < 3) setOnboardingStep(prev => prev + 1); else finishOnboarding(); }} className="bg-yellow-500 text-gray-900 font-black text-xl py-4 w-full rounded-2xl active:scale-95 absolute bottom-10 left-6 right-6"> 
+          {onboardingStep < 3 ? 'Далі ➔' : 'Почати Гру! 🚀'} 
+        </button>
       </div>
     );
   }
 
-  // 🔥 ЛОГІКА СКІНА: Якщо default - показуємо еволюцію по рівню. Інакше - куплений скін.
   const currentSkinImg = userData?.current_skin === 'default' 
     ? LEVEL_SKINS[Math.min(level - 1, 8)] 
     : SKINS.find(s => s.id === userData?.current_skin)?.img || LEVEL_SKINS[Math.min(level - 1, 8)];
@@ -412,7 +421,6 @@ function App() {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
-                {/* Кнопка "Зняти скін" (Еволюція) */}
                 <div className={`bg-gray-800 border p-4 rounded-3xl text-center flex flex-col items-center justify-between h-48 ${userData.current_skin === 'default' ? 'border-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'border-gray-700'}`}>
                   <img src={LEVEL_SKINS[Math.min(level - 1, 8)]} className="w-16 h-16 object-contain mb-2 drop-shadow-lg" />
                   <h3 className="font-bold text-sm text-white mb-2">Еволюція (Базова)</h3>
@@ -442,7 +450,6 @@ function App() {
         {activeTab === 'tasks' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
             
-            {/* 🔥 КНОПКА ЩОДЕННОГО БОНУСУ 🔥 */}
             {dailyAvailable && (
               <button onClick={() => setShowDailyModal(true)} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-gray-900 font-black py-4 rounded-2xl mb-6 shadow-[0_0_15px_rgba(249,115,22,0.5)] animate-pulse active:scale-95">
                 🎁 Забрати Щоденний Бонус!
@@ -519,6 +526,9 @@ function App() {
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
             <h2 className="text-2xl font-black text-yellow-400 mb-4 text-center">ℹ️ Інфо та Правила</h2>
             <div className="bg-gray-800 border border-gray-700 p-5 rounded-3xl text-sm text-gray-300 space-y-4 mb-6 shadow-xl">
+              
+              <p><strong className="text-green-400 text-base">💸 Жодних Донатів:</strong> Найголовніший донат — це ваш час! Більше граєш — більше отримуєш. Ти не платиш нічого, але маєш шанс виграти круті призи щомісяця. Хіба це не круто?</p>
+
               <p><strong className="text-white text-base">1. Чесний рейтинг:</strong> Ми не казино і не лотерея. Нагороди отримують лише ті, хто закріпився в ТОП-11 рейтингу на момент закінчення сезону (1-го числа о 00:00).</p>
               
               <p><strong className="text-yellow-400 text-base">2. Призовий фонд (Прозоро):</strong> Ми гарантовано віддаємо <span className="font-bold text-white">15% від усього доходу з реклами</span> щомісяця. <br/> 
@@ -531,7 +541,6 @@ function App() {
               <p><strong className="text-red-400 text-base">5. Античит:</strong> Сторонні скрипти суворо заборонені. Система виявляє їх автоматично і блокує гравця до кінця сезону.</p>
             </div>
             
-            {/* 🔥 АДМІН-ПАНЕЛЬ (ВИДНО ТІЛЬКИ ТОБІ) 🔥 */}
             {String(user.id) === ADMIN_TELEGRAM_ID && (
               <div className="bg-red-900/50 border-2 border-red-500 p-5 rounded-3xl mb-6 shadow-[0_0_20px_rgba(239,68,68,0.5)]">
                 <h2 className="text-xl font-black text-white mb-2 text-center">👑 ПАНЕЛЬ АДМІНА</h2>
@@ -541,7 +550,6 @@ function App() {
                 </button>
               </div>
             )}
-
           </div>
         )}
       </div>
@@ -553,7 +561,6 @@ function App() {
         <button onClick={() => { triggerSelection(); setActiveTab('info'); }} className={`flex flex-col items-center justify-center transition-colors ${activeTab === 'info' ? 'text-yellow-400' : 'text-gray-500'}`}><span className="text-2xl mb-1">ℹ️</span><span className="text-[10px] font-bold uppercase">Інфо</span></button>
       </div>
 
-      {/* МОДАЛКА: НАЛАШТУВАННЯ */}
       {showSettings && (
         <div className="absolute inset-0 z-[90] bg-gray-950/95 flex flex-col p-6 items-center justify-center animate-fade-in">
           <div className="bg-gray-900 border border-gray-700 rounded-3xl p-6 w-full max-w-sm shadow-2xl relative">
