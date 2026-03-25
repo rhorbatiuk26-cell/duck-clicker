@@ -55,6 +55,10 @@ const User = sequelize.define('User', {
   ad_x5_left: { type: DataTypes.INTEGER, defaultValue: 3 },
   ad_autoclick_left: { type: DataTypes.INTEGER, defaultValue: 3 },
   ad_magnet_left: { type: DataTypes.INTEGER, defaultValue: 3 },
+  ad_energy_ready_at: { type: DataTypes.DATE, allowNull: true },
+  ad_x5_ready_at: { type: DataTypes.DATE, allowNull: true },
+  ad_autoclick_ready_at: { type: DataTypes.DATE, allowNull: true },
+  ad_magnet_ready_at: { type: DataTypes.DATE, allowNull: true },
   task_tg_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   task_x_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   task_yt_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
@@ -66,17 +70,14 @@ User.belongsTo(Squad, { foreignKey: 'squad_id' });
 
 sequelize.sync({ alter: true }).then(() => console.log('✅ База даних успішно оновлена!'));
 
-// 🔥 ХАРДКОРНІ РІВНІ 🔥
 const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
 const MAX_ENERGY = 2000;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
 
-// 🔥 БАЗА БІЗНЕСІВ 🔥
 const SHOP_ITEMS_DB = {
   1: { reqRefs: 0 }, 2: { reqRefs: 0 }, 3: { reqRefs: 0 }, 4: { reqRefs: 0 }, 
   5: { reqRefs: 0 }, 6: { reqRefs: 0 }, 7: { reqRefs: 0 }, 8: { reqRefs: 0 },
-  9: { reqRefs: 3 }, // Біржа
-  10: { reqRefs: 7 } // Телеканал
+  9: { reqRefs: 3 }, 10: { reqRefs: 7 } 
 };
 
 const sendTelegramMessage = async (chatId, text) => {
@@ -99,7 +100,7 @@ const endSeasonAndNotify = async () => {
     topUsers.forEach((u, i) => { msg += `${i+1}. <a href="tg://user?id=${u.telegram_id}">${u.first_name}</a> — Рейтинг: ${u.total_earned} 🏆\n`; });
     msg += `\n🛡 <b>ТОП СКВАД:</b>\n`;
     if (topSquad) {
-      msg += `<b>@${topSquad.name}</b> (Всього: ${topSquad.total_points} 🏆)\n\n🎖 <b>ТОП Гравці цього скваду:</b>\n`;
+      msg += `<b>@${topSquad.name}</b> (Всього: ${topSquad.total_points} 🏆)\n\n🎖 <b>ТОП Гравці:</b>\n`;
       squadTopUsers.forEach((u, i) => { msg += `${i+1}. <a href="tg://user?id=${u.telegram_id}">${u.first_name}</a> — ${u.total_earned} 🏆\n`; });
     } else { msg += `Немає створених сквадів.\n`; }
     await sendTelegramMessage(adminId, msg);
@@ -136,7 +137,11 @@ const calculateOfflineProgress = async (user) => {
   const now = new Date();
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const lastReset = new Date(user.last_boost_reset); lastReset.setHours(0, 0, 0, 0);
-  if (today > lastReset) { user.free_energy_refills = 3; user.ad_energy_left = 3; user.ad_x5_left = 3; user.ad_autoclick_left = 3; user.ad_magnet_left = 3; user.last_boost_reset = now; }
+  if (today > lastReset) { 
+    user.free_energy_refills = 3; user.ad_energy_left = 3; user.ad_x5_left = 3; user.ad_autoclick_left = 3; user.ad_magnet_left = 3; 
+    user.ad_energy_ready_at = null; user.ad_x5_ready_at = null; user.ad_autoclick_ready_at = null; user.ad_magnet_ready_at = null;
+    user.last_boost_reset = now; 
+  }
   const secondsPassedEnergy = (now - new Date(user.last_energy_update)) / 1000;
   if (secondsPassedEnergy > 0) { user.energy = Math.min(MAX_ENERGY, user.energy + Math.floor(secondsPassedEnergy / 3)); user.last_energy_update = now; }
   let passiveEarned = 0;
@@ -193,11 +198,7 @@ app.post('/api/user/init', async (req, res) => {
       if (referrer_id) {
         startingPoints = 10000; 
         const referrer = await User.findByPk(String(referrer_id));
-        if (referrer) {
-          referrer.season_points = Number(referrer.season_points) + 10000;
-          referrer.total_earned = Number(referrer.total_earned) + 10000;
-          await referrer.save();
-        }
+        if (referrer) { referrer.season_points = Number(referrer.season_points) + 10000; referrer.total_earned = Number(referrer.total_earned) + 10000; await referrer.save(); }
       }
       user = await User.create({ telegram_id: String(telegram_id), first_name: first_name || 'Гравець', referrer_id: referrer_id ? String(referrer_id) : null, season_points: startingPoints, total_earned: startingPoints, last_energy_update: new Date(), last_passive_collect: new Date() });
     }
@@ -228,8 +229,7 @@ app.post('/api/user/tap', async (req, res) => {
     user.season_points = Number(user.season_points) + points_to_add; 
     user.total_earned = Number(user.total_earned) + points_to_add; 
     user.energy -= actualTouches; user.last_energy_update = new Date();
-    let new_level = 1;
-    for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
+    let new_level = 1; for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
     user.level = new_level > 10 ? 10 : new_level;
     await user.save();
     if (user.squad_id) await Squad.increment('total_points', { by: points_to_add, where: { username: user.squad_id } });
@@ -240,31 +240,50 @@ app.post('/api/user/tap', async (req, res) => {
 });
 
 app.post('/api/user/ad_boost', async (req, res) => {
-  const { telegram_id, boost_type } = req.body;
+  const { telegram_id, boost_type, fallback } = req.body;
+  const now = new Date();
+  const AD_COOLDOWN_MS = 60 * 60 * 1000; // 1 Година перезарядки
+  const cooldownEnd = new Date(now.getTime() + AD_COOLDOWN_MS);
+
   try {
     const user = await User.findByPk(String(telegram_id));
     await calculateOfflineProgress(user);
+
+    // Загальна перевірка та нарахування
     if (boost_type === 'energy') { 
-      if (user.ad_energy_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
-      user.energy = MAX_ENERGY; user.last_energy_update = new Date(); user.ad_energy_left -= 1;
+      if (user.ad_energy_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
+      if (user.ad_energy_ready_at && new Date(user.ad_energy_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
+      if (!fallback) { user.energy = MAX_ENERGY; user.last_energy_update = now; }
+      user.ad_energy_left -= 1; user.ad_energy_ready_at = cooldownEnd;
     } else if (boost_type === 'x5') { 
-      if (user.ad_x5_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
-      user.boost_until = new Date(Date.now() + 5 * 60 * 1000); user.boost_multiplier = 5; user.ad_x5_left -= 1;
+      if (user.ad_x5_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
+      if (user.ad_x5_ready_at && new Date(user.ad_x5_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
+      if (!fallback) { user.boost_until = new Date(now.getTime() + 5 * 60 * 1000); user.boost_multiplier = 5; }
+      user.ad_x5_left -= 1; user.ad_x5_ready_at = cooldownEnd;
     } else if (boost_type === 'autoclick') { 
-      if (user.ad_autoclick_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
-      user.auto_click_until = new Date(Date.now() + 3 * 60 * 1000); user.ad_autoclick_left -= 1;
+      if (user.ad_autoclick_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
+      if (user.ad_autoclick_ready_at && new Date(user.ad_autoclick_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
+      if (!fallback) { user.auto_click_until = new Date(now.getTime() + 3 * 60 * 1000); }
+      user.ad_autoclick_left -= 1; user.ad_autoclick_ready_at = cooldownEnd;
     } else if (boost_type === 'magnet') { 
-      if (user.ad_magnet_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
-      user.season_points = Number(user.season_points) + 5000;
-      user.total_earned = Number(user.total_earned) + 5000; 
-      user.ad_magnet_left -= 1;
+      if (user.ad_magnet_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
+      if (user.ad_magnet_ready_at && new Date(user.ad_magnet_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
+      if (!fallback) { user.season_points = Number(user.season_points) + 5000; user.total_earned = Number(user.total_earned) + 5000; }
+      user.ad_magnet_left -= 1; user.ad_magnet_ready_at = cooldownEnd;
     } else return res.status(400).json({ error: 'Невідомий буст' });
-    let new_level = 1;
-    for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
+
+    // Якщо це "План Б", даємо замість буста просто 1500 монет
+    if (fallback) {
+      user.season_points = Number(user.season_points) + 1500;
+      user.total_earned = Number(user.total_earned) + 1500;
+    }
+
+    let new_level = 1; for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
     user.level = new_level > 10 ? 10 : new_level;
     await user.save();
-    const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
-    const auto_click = user.auto_click_until && new Date(user.auto_click_until) > new Date();
+    
+    const active_boost = user.boost_until && new Date(user.boost_until) > now;
+    const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
     res.json({ user: { ...user.get(), active_boost, auto_click } });
   } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
@@ -307,18 +326,10 @@ app.post('/api/user/buy_upgrade', async (req, res) => {
     const user = await User.findByPk(String(telegram_id));
     if (user.season_points < cost) return res.status(400).json({ error: 'Недостатньо' });
     const requiredRefs = SHOP_ITEMS_DB[item_id]?.reqRefs || 0;
-    if (user.referrals_count < requiredRefs) {
-      return res.status(400).json({ error: `Треба запросити ще активних друзів. Мінімум: ${requiredRefs}` });
-    }
-    user.season_points = Number(user.season_points) - cost; 
-    user.passive_income += income_increase; 
-    let biz = user.businesses || {};
-    biz[item_id] = (biz[item_id] || 0) + 1;
-    user.businesses = biz;
-    user.changed('businesses', true);
-    user.last_passive_collect = new Date(); 
-    await user.save(); 
-    res.json({ user: user.get() });
+    if (user.referrals_count < requiredRefs) { return res.status(400).json({ error: `Треба запросити ще активних друзів. Мінімум: ${requiredRefs}` }); }
+    user.season_points = Number(user.season_points) - cost; user.passive_income += income_increase; 
+    let biz = user.businesses || {}; biz[item_id] = (biz[item_id] || 0) + 1; user.businesses = biz; user.changed('businesses', true); user.last_passive_collect = new Date(); 
+    await user.save(); res.json({ user: user.get() });
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -332,13 +343,10 @@ app.post('/api/user/achievement', async (req, res) => {
     if (achievement_id === 'ref_10' && user.referrals_count < 10) return res.status(400).json({ error: 'Недостатньо друзів' });
     if (achievement_id === 'ref_50' && user.referrals_count < 50) return res.status(400).json({ error: 'Недостатньо друзів' });
     achs.push(achievement_id); user.achievements = achs; 
-    user.season_points = Number(user.season_points) + reward; 
-    user.total_earned = Number(user.total_earned) + reward; 
-    let new_level = 1;
-    for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
+    user.season_points = Number(user.season_points) + reward; user.total_earned = Number(user.total_earned) + reward; 
+    let new_level = 1; for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
     user.level = new_level > 10 ? 10 : new_level;
-    await user.save();
-    return res.json({ user: user.get(), reward });
+    await user.save(); return res.json({ user: user.get(), reward });
   } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -378,8 +386,7 @@ app.post('/api/user/claim_task', async (req, res) => {
       if (!isSubscribed) return res.status(400).json({ error: 'not_subscribed' });
     }
     user[`task_${task_type}_claimed`] = true; 
-    user.season_points = Number(user.season_points) + reward;
-    user.total_earned = Number(user.total_earned) + reward;
+    user.season_points = Number(user.season_points) + reward; user.total_earned = Number(user.total_earned) + reward;
     let new_level = 1; for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
     user.level = new_level > 10 ? 10 : new_level;
     await user.save(); await checkReferralReward(user); return res.json({ user: user.get(), reward });
@@ -396,6 +403,7 @@ app.post('/api/user/reset', async (req, res) => {
     user.achievements = []; user.unlocked_skins = ['default']; user.current_skin = 'default'; user.squad_id = null; 
     user.task_tg_claimed = false; user.task_x_claimed = false; user.task_yt_claimed = false; user.task_ig_claimed = false;
     user.ad_energy_left = 3; user.ad_x5_left = 3; user.ad_autoclick_left = 3; user.ad_magnet_left = 3;
+    user.ad_energy_ready_at = null; user.ad_x5_ready_at = null; user.ad_autoclick_ready_at = null; user.ad_magnet_ready_at = null;
     user.businesses = {}; 
     await user.save(); res.json({ user: user.get() });
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
@@ -415,10 +423,7 @@ app.get('/api/leaderboard', async (req, res) => {
     let currentUserRank = null; let currentUserData = null;
     if (telegram_id) {
       currentUserData = await User.findByPk(String(telegram_id), { attributes: ['telegram_id', 'first_name', 'total_earned', 'level', 'squad_id'] });
-      if (currentUserData) {
-        const higherScoresCount = await User.count({ where: { total_earned: { [Op.gt]: currentUserData.total_earned } } });
-        currentUserRank = higherScoresCount + 1; 
-      }
+      if (currentUserData) { const higherScoresCount = await User.count({ where: { total_earned: { [Op.gt]: currentUserData.total_earned } } }); currentUserRank = higherScoresCount + 1; }
     }
     res.json({ players: topUsers, squads: topSquads, currentUser: currentUserData ? { ...currentUserData.get(), rank: currentUserRank } : null });
   } catch (error) { res.status(500).json({ error: 'Server error' }); }
