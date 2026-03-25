@@ -35,8 +35,11 @@ const User = sequelize.define('User', {
   current_skin: { type: DataTypes.STRING, defaultValue: 'default' },
   unlocked_skins: { type: DataTypes.JSON, defaultValue: ['default'] },
   achievements: { type: DataTypes.JSON, defaultValue: [] },
+  
   referrer_id: { type: DataTypes.STRING, allowNull: true },
   referrer_rewarded: { type: DataTypes.BOOLEAN, defaultValue: false },
+  referrals_count: { type: DataTypes.INTEGER, defaultValue: 0 }, // 🔥 ЛІЧИЛЬНИК ДРУЗІВ 🔥
+
   boost_until: { type: DataTypes.DATE, allowNull: true },
   boost_multiplier: { type: DataTypes.INTEGER, defaultValue: 1 },
   auto_click_until: { type: DataTypes.DATE, allowNull: true },
@@ -59,87 +62,50 @@ User.belongsTo(Squad, { foreignKey: 'squad_id' });
 
 sequelize.sync({ alter: true }).then(() => console.log('✅ База даних успішно оновлена!'));
 
-const LEVEL_THRESHOLDS = [0, 5000, 25000, 100000, 500000, 2000000, 25000000, 100000000, 1000000000];
+// 🔥 НОВІ ХАРДКОРНІ 10 РІВНІВ (до 50 Мільярдів) 🔥
+const LEVEL_THRESHOLDS = [0, 10000, 100000, 500000, 2000000, 10000000, 50000000, 500000000, 5000000000, 50000000000];
 const MAX_ENERGY = 2000;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
 
-// 🔥 ВІДПРАВКА ПОВІДОМЛЕННЯ В TELEGRAM 🔥
 const sendTelegramMessage = async (chatId, text) => {
   const token = process.env.BOT_TOKEN;
   if (!token || !chatId) return;
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
   try {
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'HTML' })
-    });
-  } catch (e) { console.error('Помилка відправки в ТГ', e); }
+    await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'HTML' }) });
+  } catch (e) {}
 };
 
-// 🔥 ЛОГІКА ЗАВЕРШЕННЯ СЕЗОНУ (Збір статистики і обнулення) 🔥
 const endSeasonAndNotify = async () => {
   const adminId = process.env.ADMIN_TELEGRAM_ID;
   if (!adminId) return { error: "Немає ADMIN_TELEGRAM_ID" };
-
   try {
-    // 1. Збираємо ТОП-11 Гравців
     const topUsers = await User.findAll({ order: [['season_points', 'DESC']], limit: 11 });
-    
-    // 2. Збираємо ТОП-1 Сквад
     const topSquad = await Squad.findOne({ order: [['total_points', 'DESC']] });
     let squadTopUsers = [];
-    if (topSquad) {
-      squadTopUsers = await User.findAll({ where: { squad_id: topSquad.username }, order: [['season_points', 'DESC']], limit: 10 });
-    }
-
-    // 3. Формуємо красивий звіт
-    let msg = `🚨 <b>СЕЗОН ЗАВЕРШЕНО! ЗВІТ ДЛЯ АДМІНА</b> 🚨\n\n`;
-    msg += `🏆 <b>ТОП-11 ГРАВЦІВ:</b>\n`;
+    if (topSquad) squadTopUsers = await User.findAll({ where: { squad_id: topSquad.username }, order: [['season_points', 'DESC']], limit: 10 });
+    let msg = `🚨 <b>СЕЗОН ЗАВЕРШЕНО! ЗВІТ ДЛЯ АДМІНА</b> 🚨\n\n🏆 <b>ТОП-11 ГРАВЦІВ:</b>\n`;
     if (topUsers.length === 0) msg += `Немає активних гравців.\n`;
-    topUsers.forEach((u, i) => {
-      msg += `${i+1}. <a href="tg://user?id=${u.telegram_id}">${u.first_name}</a> — ${u.season_points} 💰\n`;
-    });
-
+    topUsers.forEach((u, i) => { msg += `${i+1}. <a href="tg://user?id=${u.telegram_id}">${u.first_name}</a> — ${u.season_points} 💰\n`; });
     msg += `\n🛡 <b>ТОП СКВАД:</b>\n`;
     if (topSquad) {
-      msg += `<b>@${topSquad.name}</b> (Всього: ${topSquad.total_points} 💰)\n\n`;
-      msg += `🎖 <b>ТОП Гравці цього скваду:</b>\n`;
-      squadTopUsers.forEach((u, i) => {
-        msg += `${i+1}. <a href="tg://user?id=${u.telegram_id}">${u.first_name}</a> — ${u.season_points} 💰\n`;
-      });
-    } else {
-      msg += `Немає створених сквадів.\n`;
-    }
-
-    // 4. Відправляємо адміну
+      msg += `<b>@${topSquad.name}</b> (Всього: ${topSquad.total_points} 💰)\n\n🎖 <b>ТОП Гравці цього скваду:</b>\n`;
+      squadTopUsers.forEach((u, i) => { msg += `${i+1}. <a href="tg://user?id=${u.telegram_id}">${u.first_name}</a> — ${u.season_points} 💰\n`; });
+    } else { msg += `Немає створених сквадів.\n`; }
     await sendTelegramMessage(adminId, msg);
-
-    // 5. ОБНУЛЕННЯ БАЗИ ДАНИХ (Тільки монети, пасив та рівні)
     await User.update({ season_points: 0, level: 1, energy: MAX_ENERGY, passive_income: 0 }, { where: {} });
     await Squad.update({ total_points: 0 }, { where: {} });
-
     return { success: true };
-  } catch (error) {
-    console.error("Помилка завершення сезону", error);
-    return { error: "Внутрішня помилка" };
-  }
+  } catch (error) { return { error: "Внутрішня помилка" }; }
 };
 
-// 🔥 АВТОМАТИЧНА ПЕРЕВІРКА 1-ГО ЧИСЛА 🔥
 setInterval(async () => {
   const now = new Date();
-  // Якщо сьогодні 1-ше число місяця, і зараз 00:00 годин (по UTC це 2-3 ночі Київ)
   if (now.getDate() === 1 && now.getHours() === 0) {
-    // Перевіряємо, чи ми вже обнуляли. Якщо є люди з балансом > 0, значить ще не обнуляли.
     const activeUsers = await User.count({ where: { season_points: { [Op.gt]: 0 } } });
-    if (activeUsers > 0) {
-      console.log("Автоматичне завершення сезону...");
-      await endSeasonAndNotify();
-    }
+    if (activeUsers > 0) await endSeasonAndNotify();
   }
-}, 1000 * 60 * 30); // Перевіряємо кожні 30 хвилин
-
+}, 1000 * 60 * 30);
 
 const checkReferralReward = async (user) => {
   if (user.level >= 3 && user.referrer_id && !user.referrer_rewarded) {
@@ -177,7 +143,7 @@ const calculateOfflineProgress = async (user) => {
       user.last_passive_collect = now;
       let new_level = 1;
       for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.season_points >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
-      user.level = new_level > 9 ? 9 : new_level;
+      user.level = new_level > 10 ? 10 : new_level;
       if (user.squad_id) await Squad.increment('total_points', { by: passiveEarned, where: { username: user.squad_id } });
     }
   }
@@ -205,8 +171,6 @@ const checkTelegramSubscription = (userId) => {
   });
 };
 
-// --- API МАРШРУТИ ---
-
 app.post('/api/user/init', async (req, res) => {
   const { telegram_id, first_name, start_param } = req.body;
   try {
@@ -219,7 +183,19 @@ app.post('/api/user/init', async (req, res) => {
     }
 
     if (!user) {
-      user = await User.create({ telegram_id: String(telegram_id), first_name: first_name || 'Гравець', referrer_id: referrer_id ? String(referrer_id) : null, last_energy_update: new Date(), last_passive_collect: new Date() });
+      let startingPoints = 0;
+      // 🔥 WIN-WIN РЕФЕРАЛКА 🔥
+      if (referrer_id) {
+        startingPoints = 25000; // Бонус новачку
+        const referrer = await User.findByPk(String(referrer_id));
+        if (referrer) {
+          referrer.season_points = Number(referrer.season_points) + 25000; // Бонус власнику лінка
+          referrer.referrals_count += 1; // Збільшуємо лічильник друзів
+          await referrer.save();
+        }
+      }
+      
+      user = await User.create({ telegram_id: String(telegram_id), first_name: first_name || 'Гравець', referrer_id: referrer_id ? String(referrer_id) : null, season_points: startingPoints, last_energy_update: new Date(), last_passive_collect: new Date() });
     }
 
     if (squad_to_join && user.squad_id !== squad_to_join) {
@@ -254,7 +230,7 @@ app.post('/api/user/tap', async (req, res) => {
     
     let new_level = 1;
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.season_points >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
-    user.level = new_level > 9 ? 9 : new_level;
+    user.level = new_level > 10 ? 10 : new_level;
 
     await user.save();
     if (user.squad_id) await Squad.increment('total_points', { by: points_to_add, where: { username: user.squad_id } });
@@ -277,7 +253,7 @@ app.post('/api/user/ad_boost', async (req, res) => {
     else return res.status(400).json({ error: 'Невідомий буст' });
     let new_level = 1;
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.season_points >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
-    user.level = new_level > 9 ? 9 : new_level;
+    user.level = new_level > 10 ? 10 : new_level;
     await user.save();
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > new Date();
@@ -321,11 +297,19 @@ app.post('/api/user/achievement', async (req, res) => {
   try {
     const user = await User.findByPk(String(telegram_id));
     let achs = user.achievements || [];
-    if (!achs.includes(achievement_id)) {
-      achs.push(achievement_id); user.achievements = achs; user.season_points = Number(user.season_points) + reward; await user.save();
-      return res.json({ user: user.get(), reward });
-    }
-    res.status(400).json({ error: 'Вже отримано' });
+    if (achs.includes(achievement_id)) return res.status(400).json({ error: 'Вже отримано' });
+
+    // 🔥 ПЕРЕВІРКА АЧІВОК НА ДРУЗІВ 🔥
+    if (achievement_id === 'ref_3' && user.referrals_count < 3) return res.status(400).json({ error: 'Недостатньо друзів' });
+    if (achievement_id === 'ref_10' && user.referrals_count < 10) return res.status(400).json({ error: 'Недостатньо друзів' });
+    if (achievement_id === 'ref_50' && user.referrals_count < 50) return res.status(400).json({ error: 'Недостатньо друзів' });
+
+    achs.push(achievement_id); user.achievements = achs; user.season_points = Number(user.season_points) + reward; 
+    let new_level = 1;
+    for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.season_points >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
+    user.level = new_level > 10 ? 10 : new_level;
+    await user.save();
+    return res.json({ user: user.get(), reward });
   } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -374,7 +358,7 @@ app.post('/api/user/claim_task', async (req, res) => {
     }
     user[`task_${task_type}_claimed`] = true; user.season_points = Number(user.season_points) + reward;
     let new_level = 1; for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.season_points >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
-    user.level = new_level > 9 ? 9 : new_level;
+    user.level = new_level > 10 ? 10 : new_level;
     await user.save(); await checkReferralReward(user); return res.json({ user: user.get(), reward });
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
@@ -392,7 +376,6 @@ app.post('/api/user/reset', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// 🔥 ТЕСТОВА АДМІНКА: Відправка звіту і ручне завершення сезону 🔥
 app.post('/api/admin/end_season', async (req, res) => {
   const result = await endSeasonAndNotify();
   if (result.success) res.json({ success: true });

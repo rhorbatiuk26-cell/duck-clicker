@@ -6,11 +6,12 @@ const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ';
 
 // 🔥 ТВІЙ БОТ ТА ID 🔥
 const BOT_USERNAME = 'GoldDuckTap_bot';
-const ADMIN_TELEGRAM_ID = '1057689349'; // Твій ID вшито!
+const ADMIN_TELEGRAM_ID = '1057689349'; 
 
-const LEVEL_THRESHOLDS = [0, 5000, 25000, 100000, 500000, 2000000, 25000000, 100000000, 1000000000];
+// 🔥 10 РІВНІВ (До 50 Мільярдів) 🔥
+const LEVEL_THRESHOLDS = [0, 10000, 100000, 500000, 2000000, 10000000, 50000000, 500000000, 5000000000, 50000000000];
 const MAX_ENERGY = 2000;
-const levelNames = ["Бродяга", "Новачок", "Шукач", "Хуліган", "Бізнесмен", "Бос", "Магнат", "Олігарх", "Божество"];
+const levelNames = ["Бродяга", "Новачок", "Шукач", "Хуліган", "Бізнесмен", "Бос", "Магнат", "Олігарх", "Божество", "Творець"];
 
 const LEVEL_SKINS = [
   "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f986.svg", // 1: Качка
@@ -22,12 +23,14 @@ const LEVEL_SKINS = [
   "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a2.svg", // 7: Лебідь
   "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a9.svg", // 8: Фламінго
   "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f99a.svg", // 9: Павич
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f409.svg", // 10: Дракон
 ];
 
 const getLeague = (lvl) => {
   if (lvl <= 3) return { name: "Бронзова Ліга 🥉", color: "text-orange-400" };
   if (lvl <= 6) return { name: "Срібна Ліга 🥈", color: "text-gray-300" };
-  return { name: "Золота Ліга 🏆", color: "text-yellow-400" };
+  if (lvl <= 9) return { name: "Золота Ліга 🏆", color: "text-yellow-400" };
+  return { name: "Діамантова Ліга 💎", color: "text-cyan-400" };
 };
 
 const SKINS = [
@@ -110,7 +113,7 @@ function App() {
         const newPoints = prev + totalIncomePerSec;
         let calcLevel = 1;
         for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (newPoints >= LEVEL_THRESHOLDS[i]) { calcLevel = i + 1; break; } }
-        if (calcLevel > 9) calcLevel = 9;
+        if (calcLevel > 10) calcLevel = 10;
         setLevel(currentLevel => {
           if (calcLevel > currentLevel) { setJustReachedLevel(calcLevel); setShowLevelUp(true); triggerNotification('success'); return calcLevel; }
           return currentLevel;
@@ -147,7 +150,7 @@ function App() {
       const newPoints = prev + totalPointsToAdd;
       let calcLevel = 1;
       for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (newPoints >= LEVEL_THRESHOLDS[i]) { calcLevel = i + 1; break; } }
-      if (calcLevel > 9) calcLevel = 9;
+      if (calcLevel > 10) calcLevel = 10;
       setLevel(currentLevel => {
         if (calcLevel > currentLevel) { setJustReachedLevel(calcLevel); setShowLevelUp(true); triggerNotification('success'); return calcLevel; }
         return currentLevel;
@@ -223,16 +226,20 @@ function App() {
     } catch (err) { tg.showAlert("Помилка вступу"); }
   };
 
-  const claimAchievement = async (id, reward, goal) => {
+  const claimAchievement = async (id, reward, goal, type = 'points') => {
     if (userData.achievements?.includes(id)) return;
-    if (points < goal && id !== 'lvl3') { tg.showAlert("Ще не виконав!"); return; }
-    if (id === 'lvl3' && level < 3) { tg.showAlert("Ще не виконав!"); return; }
+    
+    // Перевірки перед відправкою на сервер
+    if (type === 'points' && points < goal) { tg.showAlert("Ще не назбирав монет!"); return; }
+    if (type === 'level' && level < goal) { tg.showAlert("Ще не досяг рівня!"); return; }
+    if (type === 'refs' && (userData.referrals_count || 0) < goal) { tg.showAlert(`Тобі потрібно запросити ${goal} друзів! Запрошено: ${userData.referrals_count || 0}`); return; }
+
     triggerNotification('success');
     try {
       const res = await axios.post(`${SERVER_URL}/user/achievement`, { telegram_id: userData.telegram_id, achievement_id: id, reward });
       setUserData(res.data.user); setPoints(Number(res.data.user.season_points));
       tg.showAlert(`Досягнення отримано! +${reward} 💰`);
-    } catch (err) {}
+    } catch (err) { tg.showAlert(err.response?.data?.error || "Помилка"); }
   };
 
   const claimSocialTask = async (type, link) => {
@@ -270,9 +277,7 @@ function App() {
           const res = await axios.post(`${SERVER_URL}/user/reset`, { telegram_id: userData.telegram_id });
           setUserData(res.data.user); setPoints(0); setLevel(1); setEnergy(MAX_ENERGY); setPassiveIncome(0);
           triggerNotification('success'); setActiveTab('tap'); setShowSettings(false);
-          // Скидаємо прапорець онбордингу, щоб показати його знову
-          localStorage.removeItem('onboarding_done');
-          setShowOnboarding(true); setOnboardingStep(0);
+          localStorage.removeItem('onboarding_done'); setShowOnboarding(true); setOnboardingStep(0);
         } catch (err) {}
       }
     });
@@ -317,35 +322,28 @@ function App() {
 
   if (!user || !userData) return <div className="h-screen bg-gray-950 flex flex-col items-center justify-center font-bold text-yellow-400">Завантаження...</div>;
 
-  // 🔥 ОНБОРДИНГ З 4 СЛАЙДАМИ 🔥
   if (showOnboarding) {
     return (
       <div className="h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center select-none text-white z-[100] relative">
         {onboardingStep === 0 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">🦆</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Привіт в Gold Duck!</h2><p className="text-gray-300 mb-8">Це не просто клікер. Це чесна гра, де ми віддаємо <span className="font-bold text-white">15% доходу</span> лідерам наприкінці сезону.</p></div> )}
-        
-        {/* НОВИЙ СЛАЙД ПРО ДОНАТИ */}
         {onboardingStep === 1 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">💸</div><h2 className="text-3xl font-black text-green-400 mb-4">Жодних Донатів!</h2><p className="text-gray-300 mb-8">Найголовніший донат — це твій час! Ти не платиш нічого, але маєш шанс виграти <span className="font-bold text-white">круті призи щомісяця</span>. Більше граєш — більше отримуєш!</p></div> )}
-        
         {onboardingStep === 2 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">🛒</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Пасивний дохід</h2><p className="text-gray-300 mb-8">Зароблені монети витрачай на бізнеси. Качка буде працювати і приносити гроші, навіть коли ти офлайн (до 3-х годин).</p></div> )}
         {onboardingStep === 3 && ( <div className="animate-fade-in"><div className="text-8xl mb-6">🛡️</div><h2 className="text-3xl font-black text-yellow-400 mb-4">Сквади (Команди)</h2><p className="text-gray-300 mb-8">Об'єднуйся в команди з друзями! Якщо твій сквад переможе, всі його учасники отримають величезний бонус.</p></div> )}
-        
-        <button onClick={() => { triggerHaptic('light'); if (onboardingStep < 3) setOnboardingStep(prev => prev + 1); else finishOnboarding(); }} className="bg-yellow-500 text-gray-900 font-black text-xl py-4 w-full rounded-2xl active:scale-95 absolute bottom-10 left-6 right-6"> 
-          {onboardingStep < 3 ? 'Далі ➔' : 'Почати Гру! 🚀'} 
-        </button>
+        <button onClick={() => { triggerHaptic('light'); if (onboardingStep < 3) setOnboardingStep(prev => prev + 1); else finishOnboarding(); }} className="bg-yellow-500 text-gray-900 font-black text-xl py-4 w-full rounded-2xl active:scale-95 absolute bottom-10 left-6 right-6"> {onboardingStep < 3 ? 'Далі ➔' : 'Почати Гру! 🚀'} </button>
       </div>
     );
   }
 
   const currentSkinImg = userData?.current_skin === 'default' 
-    ? LEVEL_SKINS[Math.min(level - 1, 8)] 
-    : SKINS.find(s => s.id === userData?.current_skin)?.img || LEVEL_SKINS[Math.min(level - 1, 8)];
+    ? LEVEL_SKINS[Math.min(level - 1, 9)] 
+    : SKINS.find(s => s.id === userData?.current_skin)?.img || LEVEL_SKINS[Math.min(level - 1, 9)];
 
   const league = getLeague(level);
   const energyPercent = (energy / MAX_ENERGY) * 100;
-  const bgColors = ["from-gray-900 to-gray-950", "from-slate-900 to-slate-950", "from-blue-900 to-gray-950", "from-indigo-900 to-gray-950", "from-purple-900 to-gray-950", "from-fuchsia-900 to-gray-950", "from-rose-900 to-gray-950", "from-red-900 to-gray-950", "from-yellow-900 to-gray-950"];
+  const bgColors = ["from-gray-900 to-gray-950", "from-slate-900 to-slate-950", "from-blue-900 to-gray-950", "from-indigo-900 to-gray-950", "from-purple-900 to-gray-950", "from-fuchsia-900 to-gray-950", "from-rose-900 to-gray-950", "from-red-900 to-gray-950", "from-yellow-900 to-gray-950", "from-yellow-600 to-red-900"];
 
   return (
-    <div className={`flex flex-col h-screen bg-gradient-to-b ${bgColors[level-1]} select-none overflow-hidden text-white transition-colors duration-1000`}>
+    <div className={`flex flex-col h-screen bg-gradient-to-b ${bgColors[Math.min(level-1, 9)]} select-none overflow-hidden text-white transition-colors duration-1000`}>
       
       {offlineEarned > 0 && (
         <div className="absolute top-20 left-4 right-4 bg-green-500 text-white p-4 rounded-2xl shadow-2xl z-50 text-center animate-fade-in border-2 border-green-400">
@@ -398,7 +396,7 @@ function App() {
               <div className="flex justify-between items-center mb-1"><span className="text-xs font-bold text-blue-300">⚡ Енергія</span><span className="text-xs font-bold text-blue-300">{Math.floor(energy)} / {MAX_ENERGY}</span></div>
               <div className="w-full bg-gray-900 rounded-full h-2 mb-4 overflow-hidden border border-gray-950"><div className="bg-blue-500 h-full transition-all duration-300 rounded-full" style={{ width: `${energyPercent}%` }}></div></div>
               <div className="flex justify-between items-center mb-2"><span className="font-black text-white">Рівень {level} <span className="text-gray-500 text-xs">({levelNames[level-1]})</span></span></div>
-              <div className="w-full bg-gray-900 rounded-full h-4 overflow-hidden border border-gray-950 shadow-inner relative"><div className="bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-300 h-full transition-all duration-300 rounded-full" style={{ width: `${Math.min(level < 9 ? ((points - LEVEL_THRESHOLDS[level-1]) / (LEVEL_THRESHOLDS[level] - LEVEL_THRESHOLDS[level-1])) * 100 : 100, 100)}%` }}></div></div>
+              <div className="w-full bg-gray-900 rounded-full h-4 overflow-hidden border border-gray-950 shadow-inner relative"><div className="bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-300 h-full transition-all duration-300 rounded-full" style={{ width: `${Math.min(level < 10 ? ((points - LEVEL_THRESHOLDS[level-1]) / (LEVEL_THRESHOLDS[level] - LEVEL_THRESHOLDS[level-1])) * 100 : 100, 100)}%` }}></div></div>
             </div>
           </div>
         )}
@@ -422,7 +420,7 @@ function App() {
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div className={`bg-gray-800 border p-4 rounded-3xl text-center flex flex-col items-center justify-between h-48 ${userData.current_skin === 'default' ? 'border-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'border-gray-700'}`}>
-                  <img src={LEVEL_SKINS[Math.min(level - 1, 8)]} className="w-16 h-16 object-contain mb-2 drop-shadow-lg" />
+                  <img src={LEVEL_SKINS[Math.min(level - 1, 9)]} className="w-16 h-16 object-contain mb-2 drop-shadow-lg" />
                   <h3 className="font-bold text-sm text-white mb-2">Еволюція (Базова)</h3>
                   <button onClick={resetToEvolutionSkin} className={`w-full py-2 rounded-xl text-xs font-bold active:scale-95 transition-all ${userData.current_skin === 'default' ? 'bg-yellow-400 text-gray-900' : 'bg-gray-600 text-white'}`}>
                     {userData.current_skin === 'default' ? 'Одягнено' : 'Одягнути'}
@@ -496,25 +494,32 @@ function App() {
               </div>
             </div>
 
-            <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🎯 Інше</h2>
+            {/* 🔥 РОЗШИРЕНА РЕФЕРАЛКА 🔥 */}
+            <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🎯 Друзі (Запрошено: {userData.referrals_count || 0})</h2>
             <div className="space-y-3 mb-6">
               <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex flex-col gap-3">
                 <div className="flex justify-between items-center">
-                  <div><h3 className="font-bold text-white">🤝 Запроси друга</h3><p className="text-xs text-yellow-400">+ 50,000 монет тобі!</p></div>
-                  <button onClick={() => tg.openTelegramLink(`https://t.me/share/url?url=https://t.me/${BOT_USERNAME}/play?startapp=${user.id}&text=Грай зі мною і качай качку!`)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-xl active:scale-95">Запросити</button>
+                  <div><h3 className="font-bold text-white text-sm">🤝 Запроси друга (Win-Win)</h3><p className="text-[10px] text-green-400">Тобі 25к, Другу 25к ОДРАЗУ!</p></div>
+                  <button onClick={() => tg.openTelegramLink(`https://t.me/share/url?url=https://t.me/${BOT_USERNAME}/play?startapp=${user.id}&text=Заходь за моїм лінком і отримай 25,000 монет на старті!`)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-xl active:scale-95">Запросити</button>
                 </div>
-                <div className="bg-gray-900/50 p-2 rounded-xl text-xs text-gray-400 text-center">*Монети зарахуються, коли друг досягне 3-го рівня.</div>
+                <div className="bg-gray-900/50 p-2 rounded-xl text-[10px] text-gray-400 text-center">*Бонус дається миттєво. А коли друг досягне 3-го рівня, ти отримаєш ще 50,000 монет!</div>
               </div>
             </div>
             
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🏆 Досягнення</h2>
             <div className="space-y-2 mb-6">
-              {[ { id: 'first_10k', name: 'Назбирай 10,000 монет', goal: 10000, reward: 5000 }, { id: 'lvl3', name: 'Досягни 3 рівня', goal: 0, reward: 25000 }].map(ach => {
+              {[ 
+                { id: 'first_10k', name: 'Назбирай 10,000 монет', type: 'points', goal: 10000, reward: 5000 }, 
+                { id: 'lvl3', name: 'Досягни 3 рівня', type: 'level', goal: 3, reward: 25000 },
+                { id: 'ref_3', name: 'Запроси 3 друга', type: 'refs', goal: 3, reward: 200000 },
+                { id: 'ref_10', name: 'Запроси 10 друзів', type: 'refs', goal: 10, reward: 1000000 },
+                { id: 'ref_50', name: 'Запроси 50 друзів', type: 'refs', goal: 50, reward: 10000000 },
+              ].map(ach => {
                 const isDone = userData.achievements?.includes(ach.id);
                 return (
                   <div key={ach.id} className="bg-gray-800 p-3 rounded-2xl flex justify-between items-center border border-gray-700">
                     <div><h3 className="text-sm font-bold text-white">{ach.name}</h3><p className="text-[10px] text-yellow-400">Нагорода: +{ach.reward}</p></div>
-                    <button onClick={() => claimAchievement(ach.id, ach.reward, ach.goal)} className={`text-xs font-bold py-2 px-3 rounded-lg ${isDone ? 'bg-gray-700 text-gray-500' : 'bg-green-500 text-white active:scale-95'}`}>{isDone ? 'Забрано' : 'Забрати'}</button>
+                    <button onClick={() => claimAchievement(ach.id, ach.reward, ach.goal, ach.type)} className={`text-xs font-bold py-2 px-3 rounded-lg ${isDone ? 'bg-gray-700 text-gray-500' : 'bg-green-500 text-white active:scale-95'}`}>{isDone ? 'Забрано' : 'Забрати'}</button>
                   </div>
                 )
               })}
