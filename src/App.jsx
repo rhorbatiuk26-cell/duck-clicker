@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
-// Твій бойовий сервер!
 const SERVER_URL = 'https://duck-clicker-production.up.railway.app/api';
 const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ'; 
 
+// 🔴 УВАГА: Впиши сюди юзернейм свого бота БЕЗ собачки (наприклад: GoldDuck_bot) 🔴
+const BOT_USERNAME = 'GoldDuckTap_bot';
+
 const DUCK_IMAGE = "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f986.svg";
-// ОНОВЛЕНІ ЖОРСТКІ РІВНІ
 const LEVEL_THRESHOLDS = [0, 5000, 25000, 100000, 500000, 2000000, 25000000, 100000000, 1000000000];
 const MAX_ENERGY = 2000;
 const levelNames = ["Бродяга", "Новачок", "Шукач", "Хуліган", "Бізнесмен", "Бос", "Магнат", "Олігарх", "Божество"];
@@ -48,11 +49,9 @@ function App() {
   
   const [showDailyModal, setShowDailyModal] = useState(false);
   const [offlineEarned, setOfflineEarned] = useState(0);
-  
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [justReachedLevel, setJustReachedLevel] = useState(null);
 
-  // Стан для Скваду
   const [showSquadModal, setShowSquadModal] = useState(false);
   const [squadInput, setSquadInput] = useState('');
 
@@ -67,8 +66,9 @@ function App() {
     const fetchUser = async () => {
       if (!user) return;
       try {
+        // ПЕРЕДАЄМО START_PARAM НА СЕРВЕР (щоб знав чий лінк)
         const response = await axios.post(`${SERVER_URL}/user/init`, {
-          telegram_id: user.id, first_name: user.first_name || 'Гравець', referrer_id: startParam || null
+          telegram_id: user.id, first_name: user.first_name || 'Гравець', start_param: startParam || null
         });
         const data = response.data;
         setUserData(data.user); setPoints(Number(data.user.season_points));
@@ -159,15 +159,13 @@ function App() {
     try { await axios.post(`${SERVER_URL}/user/tap`, { telegram_id: userData.telegram_id, count: actualTouches }); } catch (err) {}
   };
 
-  // 🔥 ФУНКЦІЯ ПЕРЕГЛЯДУ РЕКЛАМИ ДЛЯ БУСТІВ 🔥
   const watchAdForBoost = (boostType) => {
     tg.showConfirm("Подивитися відео від AdsGram для отримання бусту?", async (agreed) => {
       if (agreed) {
         tg.HapticFeedback.notificationOccurred('success');
         try {
           const res = await axios.post(`${SERVER_URL}/user/ad_boost`, { telegram_id: userData.telegram_id, boost_type: boostType });
-          setUserData(res.data.user);
-          setPoints(Number(res.data.user.season_points));
+          setUserData(res.data.user); setPoints(Number(res.data.user.season_points));
           if (boostType === 'energy') setEnergy(MAX_ENERGY);
           tg.showAlert("Успішно! Буст активовано 🚀");
         } catch (err) { tg.showAlert("Помилка активації"); }
@@ -203,7 +201,6 @@ function App() {
     } catch (err) {}
   };
 
-  // 🔥 САМОСТІЙНЕ ВІКНО ДЛЯ ВСТУПУ В СКВАД 🔥
   const submitSquad = async () => {
     if (!squadInput.trim()) return;
     try {
@@ -279,8 +276,18 @@ function App() {
           <div className="text-left flex flex-col items-start">
             <h1 className="text-sm font-bold text-gray-300">Привіт, {userData.first_name}!</h1>
             <span className={`text-[10px] font-black uppercase tracking-widest ${league.color}`}>{league.name}</span>
+            
+            {/* 🔥 ЛІНК НА ЗАПРОШЕННЯ У СКВАД 🔥 */}
             {userData.squad_id ? (
-              <span className="text-xs bg-gray-800 px-2 py-0.5 rounded-md mt-1 border border-gray-600">🛡️ {userData.squad_id}</span>
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-xs bg-gray-800 px-2 py-0.5 rounded-md border border-gray-600">🛡️ {userData.squad_id}</span>
+                <button 
+                  onClick={() => tg.openTelegramLink(`https://t.me/share/url?url=https://t.me/${BOT_USERNAME}/play?startapp=squad_${userData.squad_id}&text=Давай зі мною в сквад і виграємо реальні гроші!`)} 
+                  className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-md active:scale-95"
+                >
+                  🔗 Поділитися
+                </button>
+              </div>
             ) : (
               <button onClick={() => setShowSquadModal(true)} className="text-[10px] bg-blue-600/50 px-2 py-0.5 rounded-md mt-1 active:scale-95">Вступити в Сквад</button>
             )}
@@ -358,27 +365,39 @@ function App() {
             
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🔄 Бусти (За відео)</h2>
             <div className="grid grid-cols-2 gap-3 mb-6">
-              
               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl flex flex-col items-center text-center gap-2">
                 <div className="text-2xl">🔋</div><h3 className="font-bold text-xs text-white">Відновити Енергію</h3>
                 <button onClick={() => watchAdForBoost('energy')} className="w-full bg-blue-500 text-white text-xs font-bold py-2 rounded-lg active:scale-95">Дивитись</button>
               </div>
-
               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl flex flex-col items-center text-center gap-2">
                 <div className="text-2xl">🚀</div><h3 className="font-bold text-xs text-white">Множник x5 (5 хв)</h3>
                 <button onClick={() => watchAdForBoost('x5')} className="w-full bg-orange-500 text-white text-xs font-bold py-2 rounded-lg active:scale-95">Дивитись</button>
               </div>
-
               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl flex flex-col items-center text-center gap-2">
                 <div className="text-2xl">🤖</div><h3 className="font-bold text-xs text-white">Автоклікер (3 хв)</h3>
                 <button onClick={() => watchAdForBoost('autoclick')} className="w-full bg-purple-500 text-white text-xs font-bold py-2 rounded-lg active:scale-95">Дивитись</button>
               </div>
-
               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl flex flex-col items-center text-center gap-2">
                 <div className="text-2xl">🧲</div><h3 className="font-bold text-xs text-white">+10,000 Монет</h3>
                 <button onClick={() => watchAdForBoost('magnet')} className="w-full bg-green-500 text-white text-xs font-bold py-2 rounded-lg active:scale-95">Дивитись</button>
               </div>
+            </div>
 
+            <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🎯 Одноразові Завдання</h2>
+            <div className="space-y-3 mb-6">
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold text-white">🤝 Запроси друга</h3>
+                    <p className="text-xs text-yellow-400">+ 50,000 монет тобі!</p>
+                  </div>
+                  {/* 🔥 ЛІНК НА ЗАПРОШЕННЯ ДРУГА 🔥 */}
+                  <button onClick={() => tg.openTelegramLink(`https://t.me/share/url?url=https://t.me/${BOT_USERNAME}/play?startapp=${user.id}&text=Грай зі мною і качай качку!`)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-xl active:scale-95">Запросити</button>
+                </div>
+                <div className="bg-gray-900/50 p-2 rounded-xl text-xs text-gray-400 text-center">
+                  *Монети зарахуються автоматично, коли друг досягне 3-го рівня (Шукач).
+                </div>
+              </div>
             </div>
 
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🏆 Досягнення</h2>

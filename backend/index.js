@@ -58,7 +58,6 @@ User.belongsTo(Squad, { foreignKey: 'squad_id' });
 
 sequelize.sync({ alter: true }).then(() => console.log('✅ База даних успішно оновлена!'));
 
-// 🔥 ОНОВЛЕНІ ЖОРСТКІ РІВНІ (Останні 3: 25М, 100М, 1 Мільярд) 🔥
 const LEVEL_THRESHOLDS = [0, 5000, 25000, 100000, 500000, 2000000, 25000000, 100000000, 1000000000];
 const MAX_ENERGY = 2000;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
@@ -131,12 +130,43 @@ const checkTelegramSubscription = (userId) => {
 // --- API МАРШРУТИ ---
 
 app.post('/api/user/init', async (req, res) => {
-  const { telegram_id, first_name, referrer_id } = req.body;
+  const { telegram_id, first_name, start_param } = req.body;
   try {
     let user = await User.findByPk(String(telegram_id), { include: Squad });
-    if (!user) {
-      user = await User.create({ telegram_id: String(telegram_id), first_name: first_name || 'Гравець', referrer_id: referrer_id ? String(referrer_id) : null, last_energy_update: new Date(), last_passive_collect: new Date() });
+    
+    // РОЗШИФРОВУЄМО START PARAM (Лінк)
+    let referrer_id = null;
+    let squad_to_join = null;
+    
+    if (start_param) {
+      if (start_param.startsWith('squad_')) {
+        squad_to_join = start_param.replace('squad_', ''); // Беремо назву скваду
+      } else {
+        referrer_id = start_param; // Якщо просто цифри — це звичайний друг
+      }
     }
+
+    if (!user) {
+      user = await User.create({ 
+        telegram_id: String(telegram_id), 
+        first_name: first_name || 'Гравець', 
+        referrer_id: referrer_id ? String(referrer_id) : null, 
+        last_energy_update: new Date(), 
+        last_passive_collect: new Date() 
+      });
+    }
+
+    // АВТОМАТИЧНИЙ ВСТУП У СКВАД ЗА ЛІНКОМ
+    if (squad_to_join && user.squad_id !== squad_to_join) {
+      let squad = await Squad.findByPk(squad_to_join);
+      if (!squad) squad = await Squad.create({ username: squad_to_join, name: `@${squad_to_join}` });
+      
+      if (user.squad_id) await Squad.decrement('members_count', { by: 1, where: { username: user.squad_id } });
+      user.squad_id = squad_to_join;
+      await user.save();
+      await Squad.increment('members_count', { by: 1, where: { username: squad_to_join } });
+    }
+
     const progress = await calculateOfflineProgress(user);
     await progress.user.save(); await checkReferralReward(progress.user);
 
@@ -173,25 +203,17 @@ app.post('/api/user/tap', async (req, res) => {
   } catch (error) { res.status(500).json({ error: 'Server error' }); }
 });
 
-// 🔥 БІЛЬШЕ РЕКЛАМНИХ БУСТІВ 🔥
 app.post('/api/user/ad_boost', async (req, res) => {
   const { telegram_id, boost_type } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
     await calculateOfflineProgress(user);
 
-    if (boost_type === 'energy') {
-      user.energy = MAX_ENERGY;
-      user.last_energy_update = new Date();
-    } else if (boost_type === 'x5') {
-      user.boost_until = new Date(Date.now() + 5 * 60 * 1000); user.boost_multiplier = 5;
-    } else if (boost_type === 'autoclick') {
-      user.auto_click_until = new Date(Date.now() + 3 * 60 * 1000);
-    } else if (boost_type === 'magnet') {
-      user.season_points = Number(user.season_points) + 10000;
-    } else {
-      return res.status(400).json({ error: 'Невідомий буст' });
-    }
+    if (boost_type === 'energy') { user.energy = MAX_ENERGY; user.last_energy_update = new Date(); } 
+    else if (boost_type === 'x5') { user.boost_until = new Date(Date.now() + 5 * 60 * 1000); user.boost_multiplier = 5; } 
+    else if (boost_type === 'autoclick') { user.auto_click_until = new Date(Date.now() + 3 * 60 * 1000); } 
+    else if (boost_type === 'magnet') { user.season_points = Number(user.season_points) + 10000; } 
+    else return res.status(400).json({ error: 'Невідомий буст' });
 
     let new_level = 1;
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.season_points >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
