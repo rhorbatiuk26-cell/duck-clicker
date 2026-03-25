@@ -16,10 +16,7 @@ const sequelize = new Sequelize(process.env.DATABASE_URL || 'sqlite::memory:', {
   protocol: process.env.DATABASE_URL ? 'postgres' : 'sqlite',
   logging: false,
   dialectOptions: process.env.DATABASE_URL ? {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false
-    }
+    ssl: { require: true, rejectUnauthorized: false }
   } : {}
 });
 
@@ -36,19 +33,8 @@ sequelize.sync({ alter: true }).then(() => {
   console.log('✅ База даних успішно підключена!');
 }).catch(err => console.error('Помилка бази даних:', err));
 
-// 🔥 СИСТЕМА РІВНІВ (9 рівнів, ціна х2 кожного разу) 🔥
-// Скільки всього очок треба мати, щоб досягти рівня
-const LEVEL_THRESHOLDS = [
-  0,          // 1 рівень
-  1000,       // 2 рівень
-  2000,       // 3 рівень
-  4000,       // 4 рівень
-  8000,       // 5 рівень
-  16000,      // 6 рівень
-  32000,      // 7 рівень
-  64000,      // 8 рівень
-  128000      // 9 рівень (Максимум)
-];
+// 🔥 НОВІ ЖОРСТКІ РІВНІ ПРОКАЧКИ 🔥
+const LEVEL_THRESHOLDS = [0, 1000, 5000, 15000, 40000, 100000, 250000, 600000, 1500000];
 
 // --- API МАРШРУТИ ---
 
@@ -73,21 +59,25 @@ app.post('/api/user/init', async (req, res) => {
   }
 });
 
+// 🔥 ОНОВЛЕНО: ТЕПЕР ПРИЙМАЄ КІЛЬКІСТЬ ПАЛЬЦІВ (count) 🔥
 app.post('/api/user/tap', async (req, res) => {
-  const { telegram_id } = req.body;
+  const { telegram_id, count = 1 } = req.body;
+  
+  // Захист від автоклікерів: максимум 10 дотиків за один запит
+  const actualTouches = Math.min(Number(count) || 1, 10);
+
   try {
     const user = await User.findByPk(String(telegram_id));
     if (!user) return res.status(404).json({ error: 'Гравця не знайдено' });
 
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
     
-    // 🔥 МУЛЬТИ-ТАП: Очки за клік дорівнюють рівню гравця 🔥
+    // Множимо базову силу тапу на рівень і на кількість пальців
     const base_tap = user.level; 
-    const points_to_add = active_boost ? base_tap * 2 : base_tap;
+    const points_to_add = (active_boost ? base_tap * 2 : base_tap) * actualTouches;
     
     user.season_points = Number(user.season_points) + points_to_add;
     
-    // Перевірка на підвищення рівня
     let new_level = 1;
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
       if (user.season_points >= LEVEL_THRESHOLDS[i]) {
@@ -95,7 +85,7 @@ app.post('/api/user/tap', async (req, res) => {
         break;
       }
     }
-    user.level = new_level > 9 ? 9 : new_level; // Максимум 9 рівень
+    user.level = new_level > 9 ? 9 : new_level;
 
     await user.save();
     res.json({ user: { ...user.get(), active_boost } });
@@ -140,6 +130,4 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Сервер працює на порту ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Сервер працює на порту ${PORT}`));
