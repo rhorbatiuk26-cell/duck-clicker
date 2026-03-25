@@ -66,7 +66,8 @@ User.belongsTo(Squad, { foreignKey: 'squad_id' });
 
 sequelize.sync({ alter: true }).then(() => console.log('✅ База даних успішно оновлена!'));
 
-const LEVEL_THRESHOLDS = [0, 10000, 100000, 500000, 2000000, 10000000, 50000000, 500000000, 5000000000, 50000000000];
+// 🔥 НОВІ ХАРДКОРНІ РІВНІ 🔥
+const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
 const MAX_ENERGY = 2000;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
 
@@ -188,11 +189,11 @@ app.post('/api/user/init', async (req, res) => {
     if (!user) {
       let startingPoints = 0;
       if (referrer_id) {
-        startingPoints = 25000; 
+        startingPoints = 10000; // 🔥 ЗМЕНШЕНИЙ СТАРТОВИЙ БОНУС 🔥
         const referrer = await User.findByPk(String(referrer_id));
         if (referrer) {
-          referrer.season_points = Number(referrer.season_points) + 25000;
-          referrer.total_earned = Number(referrer.total_earned) + 25000;
+          referrer.season_points = Number(referrer.season_points) + 10000;
+          referrer.total_earned = Number(referrer.total_earned) + 10000;
           await referrer.save();
         }
       }
@@ -252,7 +253,9 @@ app.post('/api/user/ad_boost', async (req, res) => {
       user.auto_click_until = new Date(Date.now() + 3 * 60 * 1000); user.ad_autoclick_left -= 1;
     } else if (boost_type === 'magnet') { 
       if (user.ad_magnet_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано' });
-      user.season_points = Number(user.season_points) + 10000; user.total_earned = Number(user.total_earned) + 10000; user.ad_magnet_left -= 1;
+      user.season_points = Number(user.season_points) + 5000; // 🔥 ЗМЕНШЕНИЙ МАГНІТ 🔥
+      user.total_earned = Number(user.total_earned) + 5000; 
+      user.ad_magnet_left -= 1;
     } else return res.status(400).json({ error: 'Невідомий буст' });
     let new_level = 1;
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } }
@@ -366,12 +369,15 @@ app.post('/api/user/claim_task', async (req, res) => {
     const user = await User.findByPk(String(telegram_id));
     if (!user) return res.status(404).json({ error: 'Not found' });
     if (user[`task_${task_type}_claimed`]) return res.status(400).json({ error: 'Вже виконано' });
-    let reward = 50000; 
+    
+    // 🔥 ЗМЕНШЕНІ НАГОРОДИ ЗА ЗАВДАННЯ 🔥
+    let reward = 10000; 
     if (task_type === 'telegram') {
-      reward = 100000;
+      reward = 25000;
       const isSubscribed = await checkTelegramSubscription(telegram_id);
       if (!isSubscribed) return res.status(400).json({ error: 'not_subscribed' });
     }
+    
     user[`task_${task_type}_claimed`] = true; 
     user.season_points = Number(user.season_points) + reward;
     user.total_earned = Number(user.total_earned) + reward;

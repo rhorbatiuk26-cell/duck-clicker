@@ -7,7 +7,8 @@ const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ';
 const BOT_USERNAME = 'GoldDuckTap_bot';
 const ADMIN_TELEGRAM_ID = '1057689349'; 
 
-const LEVEL_THRESHOLDS = [0, 10000, 100000, 500000, 2000000, 10000000, 50000000, 500000000, 5000000000, 50000000000];
+// 🔥 НОВІ ХАРДКОРНІ РІВНІ 🔥
+const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
 const MAX_ENERGY = 2000;
 const levelNames = ["Бродяга", "Новачок", "Шукач", "Хуліган", "Бізнесмен", "Бос", "Магнат", "Олігарх", "Божество", "Творець"];
 
@@ -175,7 +176,6 @@ function App() {
 
   const watchAdForBoost = (boostType) => {
     if (window.Adsgram) {
-      // 🔴 ВСТАВ СВІЙ BLOCK ID ТУТ (Замість 1234567) 🔴
       const AdController = window.Adsgram.init({ blockId: "1234567" }); 
       
       AdController.show()
@@ -295,7 +295,7 @@ function App() {
         setUserData(response.data.user);
         let calcLevel = 1; for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (response.data.user.total_earned >= LEVEL_THRESHOLDS[i]) { calcLevel = i + 1; break; } }
         if (calcLevel > level) { setJustReachedLevel(calcLevel); setShowLevelUp(true); setLevel(calcLevel); }
-        triggerNotification('success'); tg.showAlert("Дякуємо за підписку! Нараховано +100,000 монет 💰");
+        triggerNotification('success'); tg.showAlert("Дякуємо за підписку! Нараховано +25,000 монет 💰");
       } catch (err) { triggerNotification('error'); if (err.response?.data?.error === 'not_subscribed') { tg.showAlert("⚠️ Ти ще не підписався на канал!"); } }
     }, 5000);
   };
@@ -528,7 +528,7 @@ function App() {
                 <button onClick={() => userData.ad_autoclick_left > 0 && watchAdForBoost('autoclick')} className={`w-full text-white text-xs font-bold py-2 rounded-lg ${userData.ad_autoclick_left > 0 ? 'bg-purple-500 active:scale-95' : 'bg-gray-600'}`}>{userData.ad_autoclick_left > 0 ? 'Дивитись' : 'Завтра'}</button>
               </div>
               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl flex flex-col items-center text-center gap-2">
-                <div className="text-2xl">🧲</div><h3 className="font-bold text-xs text-white">+10,000 Монет</h3>
+                <div className="text-2xl">🧲</div><h3 className="font-bold text-xs text-white">+5,000 Монет</h3>
                 <p className="text-[10px] text-gray-400">{userData.ad_magnet_left}/3 доступно</p>
                 <button onClick={() => userData.ad_magnet_left > 0 && watchAdForBoost('magnet')} className={`w-full text-white text-xs font-bold py-2 rounded-lg ${userData.ad_magnet_left > 0 ? 'bg-green-500 active:scale-95' : 'bg-gray-600'}`}>{userData.ad_magnet_left > 0 ? 'Дивитись' : 'Завтра'}</button>
               </div>
@@ -537,19 +537,19 @@ function App() {
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🌐 Соцмережі</h2>
             <div className="space-y-3 mb-6">
               <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
-                <div><h3 className="font-bold text-white text-sm">📣 Підписка Telegram</h3><p className="text-[10px] text-yellow-400">+ 100,000 монет</p></div>
+                <div><h3 className="font-bold text-white text-sm">📣 Підписка Telegram</h3><p className="text-[10px] text-yellow-400">+ 25,000 монет</p></div>
                 <button onClick={claimTelegramTask} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_tg_claimed ? 'bg-gray-700 text-gray-500' : 'bg-blue-500 text-white active:scale-95'}`}>{userData.task_tg_claimed ? 'Виконано' : 'Підписатись'}</button>
               </div>
               <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
-                <div><h3 className="font-bold text-white text-sm">✖️ Підписка на X (Twitter)</h3><p className="text-[10px] text-yellow-400">+ 50,000 монет</p></div>
+                <div><h3 className="font-bold text-white text-sm">✖️ Підписка на X (Twitter)</h3><p className="text-[10px] text-yellow-400">+ 10,000 монет</p></div>
                 <button onClick={() => claimSocialTask('x', 'https://twitter.com/')} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_x_claimed ? 'bg-gray-700 text-gray-500' : 'bg-gray-600 text-white active:scale-95'}`}>{userData.task_x_claimed ? 'Виконано' : 'Перейти'}</button>
               </div>
               <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
-                <div><h3 className="font-bold text-white text-sm">▶️ Дивитись YouTube</h3><p className="text-[10px] text-yellow-400">+ 50,000 монет</p></div>
+                <div><h3 className="font-bold text-white text-sm">▶️ Дивитись YouTube</h3><p className="text-[10px] text-yellow-400">+ 10,000 монет</p></div>
                 <button onClick={() => claimSocialTask('yt', 'https://youtube.com/')} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_yt_claimed ? 'bg-gray-700 text-gray-500' : 'bg-red-600 text-white active:scale-95'}`}>{userData.task_yt_claimed ? 'Виконано' : 'Дивитись'}</button>
               </div>
               <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
-                <div><h3 className="font-bold text-white text-sm">📸 Підписка Instagram</h3><p className="text-[10px] text-yellow-400">+ 50,000 монет</p></div>
+                <div><h3 className="font-bold text-white text-sm">📸 Підписка Instagram</h3><p className="text-[10px] text-yellow-400">+ 10,000 монет</p></div>
                 <button onClick={() => claimSocialTask('ig', 'https://instagram.com/')} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_ig_claimed ? 'bg-gray-700 text-gray-500' : 'bg-pink-600 text-white active:scale-95'}`}>{userData.task_ig_claimed ? 'Виконано' : 'Перейти'}</button>
               </div>
             </div>
@@ -560,12 +560,12 @@ function App() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="font-bold text-white text-sm">🤝 Запроси друга</h3>
-                    <p className="text-[10px] text-green-400">Тобі 25к, Другу 25к ОДРАЗУ!</p>
+                    <p className="text-[10px] text-green-400">Тобі 10к, Другу 10к ОДРАЗУ!</p>
                   </div>
-                  <button onClick={() => tg.openTelegramLink(`https://t.me/share/url?url=https://t.me/${BOT_USERNAME}/play?startapp=${user.id}&text=Заходь за моїм лінком і отримай 25,000 монет на старті!`)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-xl active:scale-95">Запросити</button>
+                  <button onClick={() => tg.openTelegramLink(`https://t.me/share/url?url=https://t.me/${BOT_USERNAME}/play?startapp=${user.id}&text=Заходь за моїм лінком і отримай 10,000 монет на старті!`)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-xl active:scale-95">Запросити</button>
                 </div>
                 <div className="bg-gray-900/50 p-2 rounded-xl text-[10px] text-gray-400 text-center">
-                  *Бонус +25к дається миттєво обом. АЛЕ друг зарахується тобі в прогрес (для бізнесів) і ти отримаєш ще +50,000 монет ТІЛЬКИ коли він досягне 3-го рівня!
+                  *Бонус +10к дається миттєво обом. АЛЕ друг зарахується тобі в прогрес (для бізнесів) і ти отримаєш ще +50,000 монет ТІЛЬКИ коли він досягне 3-го рівня!
                 </div>
               </div>
             </div>
