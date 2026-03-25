@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
-// Твій бойовий сервер!
 const SERVER_URL = 'https://duck-clicker-production.up.railway.app/api';
+// Заміни на лінк СВОГО каналу!
+const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ'; 
+
 const DUCK_IMAGE = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f986.svg";
 const LEVEL_THRESHOLDS = [0, 5000, 25000, 100000, 500000, 2000000, 10000000, 50000000, 250000000];
 const MAX_ENERGY = 2000;
@@ -40,6 +42,9 @@ function App() {
   const user = tg.initDataUnsafe?.user;
   const startParam = tg.initDataUnsafe?.start_param;
 
+  // Ref для кнопки качки (щоб автоклікер знав координати)
+  const duckRef = useRef(null);
+
   useEffect(() => {
     tg.expand();
     tg.disableVerticalSwipes();
@@ -67,11 +72,19 @@ function App() {
     fetchUser();
   }, [user, startParam]);
 
+  // Живий тік доходу ТА Автоклікера
   useEffect(() => {
-    if (passiveIncome <= 0) return;
+    // Рахуємо загальний дохід в секунду (пасив + автоклік)
+    let totalIncomePerSec = passiveIncome;
+    if (userData?.auto_click) {
+      totalIncomePerSec += (7 * level); // Автоклік: 7 кліків на секунду
+    }
+
+    if (totalIncomePerSec <= 0) return;
+
     const interval = setInterval(() => {
       setPoints(prev => {
-        const newPoints = prev + passiveIncome;
+        const newPoints = prev + totalIncomePerSec;
         let calcLevel = 1;
         for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
           if (newPoints >= LEVEL_THRESHOLDS[i]) { calcLevel = i + 1; break; }
@@ -89,10 +102,25 @@ function App() {
         });
         return newPoints;
       });
+
+      // Візуальний ефект автоклікера (цифри вилітають самі)
+      if (userData?.auto_click && duckRef.current && activeTab === 'tap') {
+        const rect = duckRef.current.getBoundingClientRect();
+        // Генеруємо 2-3 циферки для краси
+        const newClicks = Array.from({ length: 2 }).map(() => ({
+          id: Date.now() + Math.random(),
+          x: (Math.random() * rect.width) + 20,
+          y: (Math.random() * rect.height) + 20,
+          val: level
+        }));
+        setClicks(prev => [...prev.slice(-15), ...newClicks]); // Тримаємо не більше 15
+      }
+
     }, 1000);
     return () => clearInterval(interval);
-  }, [passiveIncome]);
+  }, [passiveIncome, userData?.auto_click, level, activeTab]);
 
+  // Відновлення енергії
   useEffect(() => {
     const interval = setInterval(() => {
       setEnergy(prev => (prev < MAX_ENERGY ? prev + 0.33 : prev));
@@ -109,7 +137,7 @@ function App() {
 
     tg.HapticFeedback.impactOccurred('medium');
 
-    const tapValue = userData.active_boost ? level * 2 : level;
+    const tapValue = userData.active_boost ? level * userData.multiplier : level;
     const totalPointsToAdd = tapValue * actualTouches;
 
     setPoints(prev => {
@@ -132,7 +160,8 @@ function App() {
       const rect = e.currentTarget.getBoundingClientRect();
       return { id: Date.now() + Math.random(), x: touch.clientX - rect.left, y: touch.clientY - rect.top, val: tapValue };
     });
-    setClicks(prev => [...prev, ...newClicks]);
+    setClicks(prev => [...prev.slice(-20), ...newClicks]);
+    
     setTimeout(() => {
       const idsToRemove = newClicks.map(c => c.id);
       setClicks(prev => prev.filter(c => !idsToRemove.includes(c.id)));
@@ -141,18 +170,23 @@ function App() {
     try { await axios.post(`${SERVER_URL}/user/tap`, { telegram_id: userData.telegram_id, count: actualTouches }); } catch (err) {}
   };
 
-  // 🔥 БЕЗКОШТОВНА ЕНЕРГІЯ (ЛІМІТОВАНА) 🔥
-  const useFreeEnergy = async () => {
-    if (userData.free_energy_refills <= 0) {
-      tg.showAlert("Сьогодні ти вже використав усі безкоштовні відновлення!");
-      return;
-    }
-    tg.HapticFeedback.notificationOccurred('success');
-    try {
-      const res = await axios.post(`${SERVER_URL}/user/free_energy`, { telegram_id: userData.telegram_id });
-      setEnergy(res.data.energy);
-      setUserData(prev => ({ ...prev, free_energy_refills: res.data.refills }));
-    } catch (err) {}
+  // 🔥 ФУНКЦІЯ ПЕРЕГЛЯДУ РЕКЛАМИ ДЛЯ БУСТІВ 🔥
+  const watchAdForBoost = (boostType) => {
+    tg.showConfirm("Подивитися відео для отримання бусту?", async (agreed) => {
+      if (agreed) {
+        // Симуляція перегляду реклами (ТУТ БУДЕ ADSGRAM)
+        tg.HapticFeedback.notificationOccurred('success');
+        try {
+          const res = await axios.post(`${SERVER_URL}/user/ad_boost`, { 
+            telegram_id: userData.telegram_id, 
+            boost_type: boostType 
+          });
+          setUserData(res.data.user);
+          if (boostType === 'energy') setEnergy(MAX_ENERGY);
+          tg.showAlert("Буст активовано! 🚀");
+        } catch (err) { tg.showAlert("Помилка активації бусту"); }
+      }
+    });
   };
 
   const claimDaily = async () => {
@@ -175,27 +209,30 @@ function App() {
     } catch (err) {}
   };
 
+  // 🔥 ПЕРЕВІРКА ПІДПИСКИ НА КАНАЛ 🔥
   const claimTaskTG = async () => {
     if (userData.task_tg_claimed) return;
-    tg.openTelegramLink('https://t.me/telegram'); // Лінк на канал
+    tg.openTelegramLink(CHANNEL_URL);
+    
+    // Даємо гравцю 5 секунд, щоб підписатися, потім перевіряємо на сервері
     setTimeout(async () => {
       try {
         const response = await axios.post(`${SERVER_URL}/user/claim_task`, { telegram_id: userData.telegram_id, task_type: 'telegram' });
         setPoints(Number(response.data.user.season_points));
         setUserData(response.data.user);
-        
-        let calcLevel = 1;
-        for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
-          if (response.data.user.season_points >= LEVEL_THRESHOLDS[i]) { calcLevel = i + 1; break; }
-        }
-        if (calcLevel > level) {
-          setJustReachedLevel(calcLevel);
-          setShowLevelUp(true);
-          setLevel(calcLevel);
-        }
         tg.HapticFeedback.notificationOccurred('success');
-      } catch (err) {}
-    }, 2000);
+        tg.showAlert("Дякуємо за підписку! Нараховано +100,000 монет 💰");
+      } catch (err) {
+        tg.HapticFeedback.notificationOccurred('error');
+        if (err.response?.data?.error === 'not_subscribed') {
+          tg.showAlert("⚠️ Ти ще не підписався на канал! Перевір підписку і спробуй знову.");
+        } else if (err.response?.data?.error === 'Вже виконано') {
+          tg.showAlert("Ти вже отримав цю нагороду.");
+        } else {
+          tg.showAlert("Помилка перевірки. Спробуй пізніше.");
+        }
+      }
+    }, 5000);
   };
 
   const resetProgress = async () => {
@@ -250,6 +287,17 @@ function App() {
           <button onClick={openLeaderboard} className="bg-gradient-to-r from-yellow-500 to-yellow-400 text-gray-900 font-bold py-2 px-4 rounded-xl shadow-lg active:scale-95">🏆 Топ</button>
         </div>
         
+        {userData.auto_click && (
+          <div className="bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-3 animate-pulse shadow-[0_0_10px_rgba(168,85,247,0.6)]">
+            🤖 ПРАЦЮЄ АВТОКЛІКЕР!
+          </div>
+        )}
+        {userData.active_boost && (
+          <div className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-3 ml-2 animate-bounce shadow-[0_0_10px_rgba(249,115,22,0.6)]">
+            🔥 БУСТ x5 АКТИВНИЙ!
+          </div>
+        )}
+        
         <div className="bg-gray-800/80 backdrop-blur-sm rounded-3xl p-4 shadow-2xl border border-gray-700/50">
           <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-1">Баланс</p>
           <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-200 to-yellow-500 drop-shadow-lg">{Math.floor(points)}</p>
@@ -260,9 +308,9 @@ function App() {
         {/* ВКЛАДКА: ГРАЙ */}
         {activeTab === 'tap' && (
           <div className="flex-1 flex flex-col px-4 animate-fade-in">
-            <div className="relative flex-1 flex items-center justify-center w-full touch-none" onTouchStart={handleTouch}>
+            <div className="relative flex-1 flex items-center justify-center w-full touch-none" onTouchStart={handleTouch} ref={duckRef}>
               <div className="absolute bg-yellow-500/10 w-64 h-64 rounded-full blur-[50px] pointer-events-none"></div>
-              <img src={DUCK_IMAGE} alt="Duck" className="w-64 h-64 object-contain drop-shadow-[0_15px_25px_rgba(0,0,0,0.6)] pointer-events-none transition-transform duration-75 active:scale-x-[1.15] active:scale-y-[0.85]"/>
+              <img src={DUCK_IMAGE} alt="Duck" className={`w-64 h-64 object-contain drop-shadow-[0_15px_25px_rgba(0,0,0,0.6)] pointer-events-none transition-transform duration-75 ${userData.auto_click ? 'animate-pulse scale-95' : 'active:scale-x-[1.15] active:scale-y-[0.85]'}`}/>
               {clicks.map((click) => (
                 <div key={click.id} className="absolute text-4xl font-black text-yellow-300 pointer-events-none z-50" style={{ left: click.x - 20, top: click.y - 50, animation: 'floatUp 1s ease-out forwards' }}>+{click.val}</div>
               ))}
@@ -315,33 +363,33 @@ function App() {
         {activeTab === 'boosts' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
             
-            {/* Секція: Щоденні Бусти */}
-            <h2 className="text-xl font-black text-yellow-400 mb-3 ml-2">🔄 Щоденні Бусти</h2>
+            <h2 className="text-xl font-black text-yellow-400 mb-3 ml-2">🔄 Щоденні Бусти (За відео)</h2>
             <div className="space-y-3 mb-8">
               <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-white">🔋 Відновити енергію</h3>
-                  <p className="text-xs text-gray-400">{userData.free_energy_refills} / 3 доступно сьогодні</p>
+                  <p className="text-xs text-gray-400">Миттєво заповнює шкалу</p>
                 </div>
-                <button 
-                  onClick={useFreeEnergy} 
-                  disabled={userData.free_energy_refills <= 0}
-                  className={`font-bold py-2 px-4 rounded-xl transition-all ${userData.free_energy_refills > 0 ? 'bg-blue-500 text-white active:scale-95' : 'bg-gray-700 text-gray-500'}`}
-                >
-                  Відновити
-                </button>
+                <button onClick={() => watchAdForBoost('energy')} className="bg-blue-500 text-white font-bold py-2 px-4 rounded-xl active:scale-95">Дивитись</button>
               </div>
 
               <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-white">🚀 Ракета x5 (5 хв)</h3>
-                  <p className="text-xs text-gray-400">За перегляд реклами</p>
+                  <h3 className="font-bold text-white">🚀 Буст x5 (5 хв)</h3>
+                  <p className="text-xs text-gray-400">Множник всіх кліків</p>
                 </div>
-                <button className="bg-orange-500 text-white font-bold py-2 px-4 rounded-xl active:scale-95">(Незабаром)</button>
+                <button onClick={() => watchAdForBoost('x5')} className="bg-orange-500 text-white font-bold py-2 px-4 rounded-xl active:scale-95">Дивитись</button>
+              </div>
+
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-white">🤖 Автоклікер x7 (3 хв)</h3>
+                  <p className="text-xs text-gray-400">Тапає за тебе!</p>
+                </div>
+                <button onClick={() => watchAdForBoost('autoclick')} className="bg-purple-500 text-white font-bold py-2 px-4 rounded-xl active:scale-95">Дивитись</button>
               </div>
             </div>
 
-            {/* Секція: Одноразові Завдання */}
             <h2 className="text-xl font-black text-yellow-400 mb-3 ml-2">🎯 Одноразові Завдання</h2>
             <div className="space-y-3">
               <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex flex-col gap-3">
@@ -353,7 +401,7 @@ function App() {
                   <button onClick={() => tg.openTelegramLink(`https://t.me/share/url?url=https://t.me/ТВІЙ_БОТ/play?startapp=${user.id}`)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-xl active:scale-95">Запросити</button>
                 </div>
                 <div className="bg-gray-900/50 p-2 rounded-xl text-xs text-gray-400 text-center">
-                  *Монети зарахуються автоматично, коли друг досягне 3-го рівня (Шукач).
+                  *Монети зарахуються автоматично, коли друг досягне 3-го рівня.
                 </div>
               </div>
 
@@ -375,20 +423,24 @@ function App() {
         {activeTab === 'info' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
             <h2 className="text-2xl font-black text-yellow-400 mb-4 text-center">ℹ️ Інфо та Правила</h2>
-            <div className="bg-gray-800 border border-gray-700 p-5 rounded-3xl text-sm text-gray-300 space-y-4 mb-6">
-              <p><strong className="text-white">1. Чесний рейтинг:</strong> Ми не казино. Нагороди отримують лише ті, хто в ТОП-11 рейтингу наприкінці місяця.</p>
-              <p><strong className="text-white">2. Як заробити:</strong> Тапай, купуй бізнеси для пасивного доходу та виконуй завдання.</p>
-              <p><strong className="text-white">3. Сезон:</strong> Наприкінці місяця рахунки обнуляються для чесного змагання в новому сезоні.</p>
+            <div className="bg-gray-800 border border-gray-700 p-5 rounded-3xl text-sm text-gray-300 space-y-4 mb-6 shadow-xl">
+              <p><strong className="text-white text-base">1. Чесний рейтинг:</strong> Ми не казино і не лотерея. Нагороди отримують лише ті, хто закріпився в ТОП-11 рейтингу на момент закінчення сезону (1-го числа о 00:00).</p>
+              
+              <p><strong className="text-yellow-400 text-base">2. Призовий фонд (Прозоро):</strong> Ми гарантовано віддаємо <span className="font-bold text-white">15% від усього доходу з реклами</span> щомісяця. <br/> 
+              <span className="text-xs text-gray-400">Наприклад: Якщо дохід склав $5000, призовий фонд — $750. Чим більше ви дивитесь рекламу (бусти), тим більший загальний призовий фонд!</span></p>
+              
+              <p><strong className="text-white text-base">3. Як заробити очки:</strong> Тапай, купуй бізнеси для пасивного доходу (працює до 3-х годин офлайн) та виконуй завдання.</p>
+              
+              <p><strong className="text-red-400 text-base">4. Античит:</strong> Автоклікери та скрипти суворо заборонені. Система виявляє їх автоматично.</p>
             </div>
             
-            <button onClick={resetProgress} className="bg-red-900/30 border border-red-500/50 text-red-500 font-bold py-4 rounded-2xl w-full active:scale-95 transition-all">
+            <button onClick={resetProgress} className="bg-red-900/30 border border-red-500/50 text-red-500 font-bold py-4 rounded-2xl w-full active:scale-95 transition-all mt-auto">
               ⚠️ Скинути мій прогрес (Для тестів)
             </button>
           </div>
         )}
       </div>
 
-      {/* НИЖНЯ НАВІГАЦІЯ (4 КНОПКИ) */}
       <div className="absolute bottom-0 left-0 right-0 h-[80px] bg-gray-900/95 backdrop-blur-lg border-t border-gray-800 grid grid-cols-4 px-1 pb-safe z-40">
         <button onClick={() => { tg.HapticFeedback.selectionChanged(); setActiveTab('tap'); }} className={`flex flex-col items-center justify-center transition-colors ${activeTab === 'tap' ? 'text-yellow-400' : 'text-gray-500'}`}>
           <span className="text-2xl mb-1">🦆</span><span className="text-[10px] font-bold uppercase">Грай</span>
@@ -404,7 +456,6 @@ function App() {
         </button>
       </div>
 
-      {/* Модалки */}
       {showLevelUp && justReachedLevel && (
         <div className="absolute inset-0 z-[70] bg-gray-950/90 flex flex-col items-center justify-center p-6 animate-fade-in backdrop-blur-lg text-center">
           <div className="text-8xl mb-4 animate-bounce">🎉</div>
