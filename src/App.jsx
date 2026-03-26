@@ -74,17 +74,18 @@ const SKINS = [
   },
 ];
 
+// 🔥 ОНОВЛЕНИЙ МАГАЗИН: Дохід за годину 🔥
 const SHOP_ITEMS = [
-  { id: 1, name: "Крихти Хліба", desc: "+1 монета / сек", baseCost: 500, income: 1, icon: "🍞" },
-  { id: 2, name: "Стара Кепка", desc: "+6 монет / сек", baseCost: 2500, income: 6, icon: "🧢" },
-  { id: 3, name: "Гітара Бродяги", desc: "+30 монет / сек", baseCost: 10000, income: 30, icon: "🎸" },
-  { id: 4, name: "Кіоск з Шаурмою", desc: "+160 монет / сек", baseCost: 50000, income: 160, icon: "🌮" },
-  { id: 5, name: "Крипто-Ферма", desc: "+900 монет / сек", baseCost: 250000, income: 900, icon: "💻" },
-  { id: 6, name: "Мережа Банків", desc: "+6,000 монет / сек", baseCost: 1500000, income: 6000, icon: "🏦" },
-  { id: 7, name: "Качиний ШІ", desc: "+45,000 монет / сек", baseCost: 10000000, income: 45000, icon: "🤖" },
-  { id: 8, name: "Місія на Марс", desc: "+250,000 монет / сек", baseCost: 50000000, income: 250000, icon: "🚀" },
-  { id: 9, name: "Крипто-Біржа", desc: "+600,000 монет / сек", baseCost: 100000000, income: 600000, icon: "📈", reqRefs: 3 },
-  { id: 10, name: "Телеканал", desc: "+3,500,000 монет / сек", baseCost: 500000000, income: 3500000, icon: "📺", reqRefs: 7 },
+  { id: 1, name: "Крихти Хліба", desc: "+300 монет / год", baseCost: 2500, income: 300, icon: "🍞" },
+  { id: 2, name: "Стара Кепка", desc: "+1,500 монет / год", baseCost: 15000, income: 1500, icon: "🧢" },
+  { id: 3, name: "Гітара Бродяги", desc: "+6,000 монет / год", baseCost: 75000, income: 6000, icon: "🎸" },
+  { id: 4, name: "Кіоск з Шаурмою", desc: "+20,000 монет / год", baseCost: 300000, income: 20000, icon: "🌮" },
+  { id: 5, name: "Крипто-Ферма", desc: "+85,000 монет / год", baseCost: 1500000, income: 85000, icon: "💻" },
+  { id: 6, name: "Мережа Банків", desc: "+450,000 монет / год", baseCost: 10000000, income: 450000, icon: "🏦" },
+  { id: 7, name: "Качиний ШІ", desc: "+2,000,000 монет / год", baseCost: 50000000, income: 2000000, icon: "🤖" },
+  { id: 8, name: "Місія на Марс", desc: "+7,500,000 монет / год", baseCost: 250000000, income: 7500000, icon: "🚀" },
+  { id: 9, name: "Крипто-Біржа", desc: "+30,000,000 монет / год", baseCost: 1000000000, income: 30000000, icon: "📈", reqRefs: 3 },
+  { id: 10, name: "Телеканал", desc: "+150,000,000 монет / год", baseCost: 5000000000, income: 150000000, icon: "📺", reqRefs: 7 },
 ];
 
 // ==========================================
@@ -123,7 +124,6 @@ function App() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [justReachedLevel, setJustReachedLevel] = useState(null);
   
-  // Анімації
   const [isFlipping, setIsFlipping] = useState(false);
   const [isWobbling, setIsWobbling] = useState(false);
 
@@ -221,21 +221,23 @@ function App() {
   };
 
   // ==========================================
-  // ПАСИВНИЙ ДОХІД
+  // ПАСИВНИЙ ДОХІД (Плавне нарахування)
   // ==========================================
 
   useEffect(() => {
-    let totalIncomePerSec = passiveIncome;
+    // passiveIncome тепер зберігається як дохід за годину
+    let totalIncomePerHour = passiveIncome;
+    let addedPerSec = totalIncomePerHour / 3600;
     
     if (userData?.auto_click) {
-      totalIncomePerSec += (7 * level);
+      addedPerSec += (7 * level); // Автоклік дає 7 тапів на секунду
     }
     
-    if (totalIncomePerSec <= 0) return;
+    if (addedPerSec <= 0) return;
 
     const interval = setInterval(() => {
       setTotalEarned(prev => {
-        const newTotal = prev + totalIncomePerSec;
+        const newTotal = prev + addedPerSec;
         let calcLevel = 1;
         
         for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
@@ -258,7 +260,7 @@ function App() {
         return newTotal;
       });
 
-      setPoints(prev => prev + totalIncomePerSec);
+      setPoints(prev => prev + addedPerSec);
 
       if (userData?.auto_click && duckRef.current && activeTab === 'tap') {
         const rect = duckRef.current.getBoundingClientRect();
@@ -836,7 +838,7 @@ function App() {
           <div className="flex justify-center items-center gap-2 text-gray-400 text-[10px] uppercase tracking-widest font-bold mb-1">
             <span>Баланс</span>
             <span className={passiveIncome > 0 ? "text-green-400" : "text-gray-500"}>
-              +{passiveIncome}/с
+              +{passiveIncome}/год
             </span>
           </div>
           <p className="text-6xl font-black text-center text-transparent bg-clip-text bg-gradient-to-b from-yellow-200 to-yellow-500 drop-shadow-lg leading-tight">
@@ -906,7 +908,7 @@ function App() {
                 </span>
               </div>
               
-              {/* 🔥 ОСЬ ТУТ Я ДОДАВ ЦИФРИ ПРОГРЕСУ В ШКАЛУ 🔥 */}
+              {/* 🔥 ШКАЛА РІВНЯ З ЦИФРАМИ 🔥 */}
               <div className="w-full bg-gray-900 rounded-full h-5 overflow-hidden border border-gray-950 shadow-inner relative flex items-center justify-center">
                 <div
                   className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-300 transition-all duration-300 rounded-full"
@@ -958,7 +960,8 @@ function App() {
               <div className="space-y-4">
                 {SHOP_ITEMS.map(item => {
                   const ownedCount = userData?.businesses?.[item.id] || 0;
-                  const currentCost = Math.floor(item.baseCost * Math.pow(1.15, ownedCount));
+                  // 🔥 ЖОРСТКИЙ КОЕФІЦІЄНТ ПОДОРОЖЧАННЯ 1.3 🔥
+                  const currentCost = Math.floor(item.baseCost * Math.pow(1.3, ownedCount));
                   const isLocked = item.reqRefs && (userData.referrals_count || 0) < item.reqRefs;
                   
                   return (

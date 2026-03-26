@@ -171,15 +171,18 @@ const calculateOfflineProgress = async (user) => {
   }
   
   let passiveEarned = 0;
-  let currentPassive = user.passive_income;
+  // 🔥 ТЕПЕР ДОХІД РАХУЄТЬСЯ ЗА ГОДИНУ 🔥
+  let currentPassivePerSec = user.passive_income / 3600;
+  
   if (user.auto_click_until && new Date(user.auto_click_until) > now) {
-    currentPassive += (7 * user.level);
+    currentPassivePerSec += (7 * user.level); // Автоклік дає 7 тапів в секунду
   }
   
-  if (currentPassive > 0) {
+  if (currentPassivePerSec > 0) {
     const secondsPassedPassive = (now - new Date(user.last_passive_collect)) / 1000;
     const cappedSeconds = Math.min(secondsPassedPassive, MAX_OFFLINE_SECONDS);
-    passiveEarned = Math.floor(cappedSeconds * currentPassive);
+    passiveEarned = Math.floor(cappedSeconds * currentPassivePerSec);
+    
     if (passiveEarned > 0) {
       user.season_points = Number(user.season_points) + passiveEarned; 
       user.total_earned = Number(user.total_earned) + passiveEarned; 
@@ -404,13 +407,10 @@ app.post('/api/squad/join', async (req, res) => {
   }
 });
 
-// 🔥 ОСЬ ГОЛОВНЕ ВИПРАВЛЕННЯ МАГАЗИНУ (Скіни) 🔥
 app.post('/api/user/buy_skin', async (req, res) => {
   const { telegram_id, skin_id, cost } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
-    
-    // ДОДАНО: Спочатку нараховуємо пасивний дохід
     await calculateOfflineProgress(user);
     
     let skins = user.unlocked_skins || ['default'];
@@ -430,13 +430,10 @@ app.post('/api/user/buy_skin', async (req, res) => {
   }
 });
 
-// 🔥 ОСЬ ГОЛОВНЕ ВИПРАВЛЕННЯ МАГАЗИНУ (Бізнеси) 🔥
 app.post('/api/user/buy_upgrade', async (req, res) => {
   const { telegram_id, item_id, cost, income_increase } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
-    
-    // ДОДАНО: Спочатку нараховуємо пасивний дохід
     await calculateOfflineProgress(user);
     
     if (user.season_points < cost) return res.status(400).json({ error: 'Недостатньо монет' });
@@ -447,7 +444,9 @@ app.post('/api/user/buy_upgrade', async (req, res) => {
     }
     
     user.season_points = Number(user.season_points) - cost; 
+    // 🔥 ДОХІД ТЕПЕР ЗАПИСУЄТЬСЯ ЯК "ЗА ГОДИНУ" 🔥
     user.passive_income += income_increase; 
+    
     let biz = user.businesses || {}; 
     biz[item_id] = (biz[item_id] || 0) + 1; 
     user.businesses = biz; 
@@ -464,8 +463,6 @@ app.post('/api/user/achievement', async (req, res) => {
   const { telegram_id, achievement_id, reward } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
-    
-    // ДОДАНО: Спочатку нараховуємо пасивний дохід
     await calculateOfflineProgress(user);
     
     let achs = user.achievements || [];
