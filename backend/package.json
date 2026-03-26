@@ -5,7 +5,10 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "dev": "vite",
+    "build": "vite build",
+    "start": "node backend/index.js",
+    "postinstall": "npm run build"
   },
   "dependencies": {
     "cors": "^2.8.5",
