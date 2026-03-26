@@ -61,7 +61,9 @@ const User = sequelize.define('User', {
   boost_until: { type: DataTypes.DATE, allowNull: true },
   boost_multiplier: { type: DataTypes.INTEGER, defaultValue: 1 },
   auto_click_until: { type: DataTypes.DATE, allowNull: true },
-  energy: { type: DataTypes.INTEGER, defaultValue: 2000 },
+  
+  // 🔥 Енергія зменшена до 1500
+  energy: { type: DataTypes.INTEGER, defaultValue: 1500 },
   last_energy_update: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   
   passive_income: { type: DataTypes.INTEGER, defaultValue: 0 },
@@ -92,9 +94,9 @@ User.belongsTo(Squad, { foreignKey: 'squad_id' });
 sequelize.sync({ alter: true }).then(() => console.log('✅ База даних успішно оновлена!'));
 
 const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
-const MAX_ENERGY = 2000;
 
-// 🔥 3 години офлайн доходу
+// 🔥 Максимальна енергія 1500
+const MAX_ENERGY = 1500;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
 
 const SHOP_ITEMS_DB = {
@@ -112,7 +114,6 @@ if (token) {
   const bot = new TelegramBot(token, { polling: true });
   const webAppUrl = 'https://duck-clicker-production.up.railway.app'; 
 
-  // Встановлюємо кнопку в меню чату
   bot.setChatMenuButton({
     menu_button: {
       type: "web_app",
@@ -121,11 +122,9 @@ if (token) {
     }
   }).catch(err => console.error("Не вдалося встановити кнопку меню:", err));
 
-  // Обробка команди /start
   bot.onText(/\/start(?:\s+(.*))?/, async (msg, match) => {
     const chatId = msg.chat.id;
     const startParam = match[1] || ''; 
-
     const finalUrl = startParam ? `${webAppUrl}?start_param=${startParam}` : webAppUrl;
 
     const text = `🦆 <b>Вітаємо у Gold Duck!</b>\n\nТисни на качку, збирай золоті монети, запрошуй друзів та змагайся з іншими гравцями!\n\nНатискай кнопку нижче, щоб почати гру 👇`;
@@ -135,18 +134,15 @@ if (token) {
       reply_markup: {
         inline_keyboard: [
           [{ text: "🎮 Відкрити гру", web_app: { url: finalUrl } }],
-          // 🔥 Твій канал вшито сюди
           [{ text: "🌐 Наш канал", url: "https://t.me/GoldDuckTap" }] 
         ]
       }
     };
-
     bot.sendMessage(chatId, text, opts);
   });
-  
   console.log('✅ Телеграм бот успішно запущений!');
 } else {
-  console.log('⚠️ УВАГА: BOT_TOKEN не знайдено. Бот не зможе відповідати на /start');
+  console.log('⚠️ УВАГА: BOT_TOKEN не знайдено.');
 }
 
 // ==========================================
@@ -399,7 +395,6 @@ app.post('/api/user/tap', async (req, res) => {
     
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
     
-    // 🔥 БОСЕ, ТУТ ЗМІНЕНО: Додав множник * 2 до рівня
     const points_to_add = (user.level * 2 * (active_boost ? user.boost_multiplier : 1)) * actualTouches;
     
     user.season_points = Number(user.season_points) + points_to_add; 

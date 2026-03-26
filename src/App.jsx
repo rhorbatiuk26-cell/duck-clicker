@@ -24,7 +24,8 @@ const LEVEL_THRESHOLDS = [
   100000000000
 ];
 
-const MAX_ENERGY = 2000;
+// 🔥 Максимальна енергія 1500
+const MAX_ENERGY = 1500;
 
 const levelNames = [
   "Бродяга",
@@ -323,12 +324,25 @@ function App() {
     }, 500);
   };
 
+  // 🔥 НОВЕ: Функція для примусової синхронізації тапів перед покупками
+  const flushTaps = async () => {
+    if (pendingTaps.current > 0 && userData) {
+      const countToSend = pendingTaps.current;
+      pendingTaps.current = 0;
+      clearTimeout(tapTimeout.current);
+      try {
+        await axios.post(`${SERVER_URL}/user/tap`, { telegram_id: userData.telegram_id, count: countToSend });
+      } catch (err) {}
+    }
+  };
+
   // ==========================================
   // РЕКЛАМА
   // ==========================================
 
   const watchAdForBoost = (boostType) => {
     if (window.Adsgram) {
+      // 🔥 ТВІЙ ADSGRAM BLOCK ID 🔥
       const AdController = window.Adsgram.init({ blockId: "25134" });
       AdController.show()
         .then(async () => {
@@ -364,6 +378,7 @@ function App() {
 
   const buyUpgrade = async (item, currentCost) => {
     if (points < currentCost) { triggerNotification('error'); return; }
+    await flushTaps(); // 🔥 Синхронізуємо кліки перед покупкою
     triggerNotification('success');
     try {
       const response = await axios.post(`${SERVER_URL}/user/buy_upgrade`, { telegram_id: userData.telegram_id, item_id: item.id, cost: currentCost, income_increase: item.income });
@@ -374,6 +389,7 @@ function App() {
   const handleSkin = async (skin) => {
     const isOwned = userData.unlocked_skins?.includes(skin.id);
     if (!isOwned && points < skin.cost) return;
+    await flushTaps(); // 🔥 Синхронізуємо кліки перед покупкою
     triggerNotification('success');
     try {
       const res = await axios.post(`${SERVER_URL}/user/buy_skin`, { telegram_id: userData.telegram_id, skin_id: skin.id, cost: skin.cost });
@@ -951,7 +967,6 @@ function App() {
             <h2 className="text-2xl font-black text-white mb-6 text-center">⚙️ Налаштування</h2>
             <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex justify-between items-center mb-6"><span className="font-bold text-white">Вібрація (Haptic)</span><button onClick={toggleHaptic} className={`w-12 h-6 rounded-full relative transition-colors ${hapticEnabled ? 'bg-green-500' : 'bg-gray-600'}`}><div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${hapticEnabled ? 'left-6.5 right-0.5' : 'left-0.5'}`}></div></button></div>
             
-            {/* 🔥 ТВОЯ СЕКРЕТНА КНОПКА 🔥 */}
             {String(user?.id) === ADMIN_TELEGRAM_ID && (
               <button onClick={resetProgress} className="bg-red-900/30 border border-red-500/50 text-red-500 font-bold py-3 rounded-xl w-full active:scale-95 transition-all">⚠️ Скинути прогрес (Адмін)</button>
             )}
