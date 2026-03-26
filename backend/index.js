@@ -3,14 +3,25 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { Sequelize, DataTypes, Op } from 'sequelize';
 import https from 'https';
+import path from 'path'; // 🔥 ДОДАНО ДЛЯ ФРОНТЕНДУ
+import { fileURLToPath } from 'url'; // 🔥 ДОДАНО ДЛЯ ФРОНТЕНДУ
 
 dotenv.config();
+
+// 🔥 ДОДАНО ДЛЯ ФРОНТЕНДУ (визначаємо шлях до папки)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+
+// ==========================================
+// 🔥 РОЗДАЧА ФРОНТЕНДУ (ГРИ) 🔥
+// ==========================================
+app.use(express.static(path.join(__dirname, '../dist')));
 
 // ==========================================
 // БАЗА ДАНИХ
@@ -233,7 +244,6 @@ app.post('/api/user/init', async (req, res) => {
     
     if (!user) {
       let startingPoints = 0;
-      // Даємо 10,000 на старті, якщо прийшов від друга
       if (referrer_id && referrer_id !== String(telegram_id)) {
         startingPoints = 10000; 
         const referrer = await User.findByPk(String(referrer_id));
@@ -276,7 +286,6 @@ app.post('/api/user/init', async (req, res) => {
   }
 });
 
-// 🔥 НОВИЙ ЕНДПОІНТ: Отримати список друзів 🔥
 app.get('/api/user/friends', async (req, res) => {
   const { telegram_id } = req.query;
   try {
@@ -290,7 +299,6 @@ app.get('/api/user/friends', async (req, res) => {
   }
 });
 
-// 🔥 НОВИЙ ЕНДПОІНТ: Забрати бонус за рівень друга 🔥
 app.post('/api/user/claim_ref_reward', async (req, res) => {
   const { telegram_id, friend_id, reward_level } = req.body;
   try {
@@ -640,6 +648,18 @@ app.get('/api/leaderboard', async (req, res) => {
     res.json({ players: topUsers, squads: topSquads, currentUser: currentUserData ? { ...currentUserData.get(), rank: currentUserRank } : null });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
+  }
+});
+
+// ==========================================
+// 🔥 ЦЕЙ МАРШРУТ МАЄ БУТИ В САМОМУ КІНЦІ 🔥
+// Він гарантує, що якщо хтось оновить сторінку, гра не зламається
+// ==========================================
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, '../dist', 'index.html'));
+  } else {
+    res.status(404).json({ error: 'API route not found' });
   }
 });
 
