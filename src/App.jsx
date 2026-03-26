@@ -74,7 +74,6 @@ const SKINS = [
   },
 ];
 
-// 🔥 ОНОВЛЕНИЙ МАГАЗИН: Дохід за годину 🔥
 const SHOP_ITEMS = [
   { id: 1, name: "Крихти Хліба", desc: "+300 монет / год", baseCost: 2500, income: 300, icon: "🍞" },
   { id: 2, name: "Стара Кепка", desc: "+1,500 монет / год", baseCost: 15000, income: 1500, icon: "🧢" },
@@ -103,6 +102,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('tap');
   const [shopSubTab, setShopSubTab] = useState('business');
   const [clicks, setClicks] = useState([]);
+  
+  const [friendsList, setFriendsList] = useState([]);
 
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardTab, setLeaderboardTab] = useState('players');
@@ -211,6 +212,14 @@ function App() {
     fetchUser();
   }, [user, startParam, showOnboarding]);
 
+  useEffect(() => {
+    if (activeTab === 'friends' && userData) {
+      axios.get(`${SERVER_URL}/user/friends?telegram_id=${userData.telegram_id}`)
+        .then(res => setFriendsList(res.data.friends))
+        .catch(err => console.error(err));
+    }
+  }, [activeTab, userData]);
+
   const triggerLevelUp = (newCalcLevel) => {
     setJustReachedLevel(newCalcLevel);
     setShowLevelUp(true);
@@ -221,16 +230,15 @@ function App() {
   };
 
   // ==========================================
-  // ПАСИВНИЙ ДОХІД (Плавне нарахування)
+  // ПАСИВНИЙ ДОХІД
   // ==========================================
 
   useEffect(() => {
-    // passiveIncome тепер зберігається як дохід за годину
     let totalIncomePerHour = passiveIncome;
     let addedPerSec = totalIncomePerHour / 3600;
     
     if (userData?.auto_click) {
-      addedPerSec += (7 * level); // Автоклік дає 7 тапів на секунду
+      addedPerSec += (7 * level);
     }
     
     if (addedPerSec <= 0) return;
@@ -438,7 +446,7 @@ function App() {
   };
 
   // ==========================================
-  // ІНШІ ФУНКЦІЇ
+  // МАГАЗИН, ДРУЗІ ТА ІНШЕ
   // ==========================================
 
   const buyUpgrade = async (item, currentCost) => {
@@ -508,6 +516,32 @@ function App() {
       tg.showAlert(`Успіх! Ти приєднався до скваду @${res.data.squad.username}`);
     } catch (err) {
       tg.showAlert("Помилка вступу");
+    }
+  };
+
+  const claimFriendReward = async (friendId, reqLevel) => {
+    triggerNotification('success');
+    try {
+      const res = await axios.post(`${SERVER_URL}/user/claim_ref_reward`, {
+        telegram_id: userData.telegram_id,
+        friend_id: friendId,
+        reward_level: reqLevel
+      });
+      
+      setUserData(res.data.user);
+      setPoints(Number(res.data.user.season_points));
+      setTotalEarned(Number(res.data.user.total_earned));
+      tg.showAlert(`Бонус забрано! +${res.data.reward} 💰`);
+      
+      setFriendsList(prev => prev.map(f => {
+        if (f.telegram_id === friendId) {
+          if (reqLevel === 3) return { ...f, ref_reward_lvl3_claimed: true };
+          if (reqLevel === 5) return { ...f, ref_reward_lvl5_claimed: true };
+        }
+        return f;
+      }));
+    } catch (err) {
+      tg.showAlert(err.response?.data?.error || 'Помилка');
     }
   };
 
@@ -908,7 +942,6 @@ function App() {
                 </span>
               </div>
               
-              {/* 🔥 ШКАЛА РІВНЯ З ЦИФРАМИ 🔥 */}
               <div className="w-full bg-gray-900 rounded-full h-5 overflow-hidden border border-gray-950 shadow-inner relative flex items-center justify-center">
                 <div
                   className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-300 transition-all duration-300 rounded-full"
@@ -960,7 +993,6 @@ function App() {
               <div className="space-y-4">
                 {SHOP_ITEMS.map(item => {
                   const ownedCount = userData?.businesses?.[item.id] || 0;
-                  // 🔥 ЖОРСТКИЙ КОЕФІЦІЄНТ ПОДОРОЖЧАННЯ 1.3 🔥
                   const currentCost = Math.floor(item.baseCost * Math.pow(1.3, ownedCount));
                   const isLocked = item.reqRefs && (userData.referrals_count || 0) < item.reqRefs;
                   
@@ -1200,7 +1232,100 @@ function App() {
         )}
 
         {/* ============================== */}
-        {/* 🔥 ВКЛАДКА: ПОВНЕ ІНФО 🔥 */}
+        {/* 🔥 НОВА ВКЛАДКА: ДРУЗІ 🔥 */}
+        {/* ============================== */}
+        {activeTab === 'friends' && (
+          <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
+            <h2 className="text-2xl font-black text-yellow-400 mb-4 text-center">👥 Ваші Друзі</h2>
+
+            <div className="bg-gray-800 border border-gray-700 p-5 rounded-3xl text-center mb-6 shadow-xl">
+              <p className="text-sm text-gray-300 mb-4">
+                Запрошуй друзів і отримуй <span className="text-yellow-400 font-bold">+10,000</span> одразу. <br/><br/>
+                Допоможи другу прокачатися: <br/>
+                Досягне 3-го рівня 👉 <span className="text-yellow-400 font-bold">+50,000</span><br/>
+                Досягне 5-го рівня 👉 <span className="text-yellow-400 font-bold">+250,000</span>
+              </p>
+              
+              <button
+                onClick={() => {
+                  triggerHaptic('light');
+                  const link = `https://t.me/${BOT_USERNAME}?start=${userData.telegram_id}`;
+                  const text = `🦆 Приєднуйся до Gold Duck і отримай 10,000 монет на старті! Заробляємо разом!`;
+                  tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
+                }}
+                className="bg-blue-600 text-white font-black py-4 px-6 rounded-xl w-full active:scale-95 transition-all flex items-center justify-center gap-2 mb-3"
+              >
+                <span className="text-xl">🚀</span> Запросити друга
+              </button>
+              
+              <button
+                onClick={() => {
+                  triggerHaptic('light');
+                  const link = `https://t.me/${BOT_USERNAME}?start=${userData.telegram_id}`;
+                  navigator.clipboard.writeText(link);
+                  tg.showAlert('✅ Унікальне посилання скопійовано!');
+                }}
+                className="text-xs text-gray-400 underline active:text-white py-2"
+              >
+                Скопіювати своє посилання
+              </button>
+            </div>
+
+            <h3 className="font-bold text-white mb-3 ml-2">Список рефералів ({friendsList.length}):</h3>
+
+            {friendsList.length === 0 ? (
+              <div className="text-center text-gray-500 mt-4 text-sm bg-gray-800/50 p-4 rounded-2xl border border-gray-700 border-dashed">
+                Ви ще нікого не запросили 😢<br/> Відправте посилання другу, щоб отримати бонус!
+              </div>
+            ) : (
+              <div className="space-y-3 pb-6">
+                {friendsList.map((friend, index) => (
+                  <div key={friend.telegram_id} className="bg-gray-800 border border-gray-700 p-4 rounded-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 bg-gray-900 px-3 py-1 text-[10px] font-black text-gray-500 rounded-bl-xl border-b border-l border-gray-700">
+                      #{index + 1}
+                    </div>
+                    <div className="flex justify-between items-center mb-4">
+                      <div>
+                        <h4 className="font-bold text-white text-base">{friend.first_name}</h4>
+                        <p className="text-xs text-yellow-400">{getLeague(friend.level).name}</p>
+                      </div>
+                      <div className="text-right mt-3">
+                        <span className="font-black text-white text-lg">{friend.total_earned} 💰</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        disabled={friend.level < 3 || friend.ref_reward_lvl3_claimed}
+                        onClick={() => claimFriendReward(friend.telegram_id, 3)}
+                        className={`flex-1 py-2 rounded-xl text-[10px] font-bold shadow-md transition-all ${
+                          friend.ref_reward_lvl3_claimed ? 'bg-gray-900 text-gray-600 border border-gray-800' :
+                          friend.level >= 3 ? 'bg-green-500 text-white active:scale-95' : 'bg-gray-700 text-gray-500'
+                        }`}
+                      >
+                        {friend.ref_reward_lvl3_claimed ? '✅ Забрано' : friend.level >= 3 ? '🎁 +50k (Рівень 3)' : '🔒 Потрібен 3 Рівень'}
+                      </button>
+
+                      <button
+                        disabled={friend.level < 5 || friend.ref_reward_lvl5_claimed}
+                        onClick={() => claimFriendReward(friend.telegram_id, 5)}
+                        className={`flex-1 py-2 rounded-xl text-[10px] font-bold shadow-md transition-all ${
+                          friend.ref_reward_lvl5_claimed ? 'bg-gray-900 text-gray-600 border border-gray-800' :
+                          friend.level >= 5 ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-gray-900 active:scale-95' : 'bg-gray-700 text-gray-500'
+                        }`}
+                      >
+                        {friend.ref_reward_lvl5_claimed ? '✅ Забрано' : friend.level >= 5 ? '🎁 +250k (Рівень 5)' : '🔒 Потрібен 5 Рівень'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ============================== */}
+        {/* ВКЛАДКА: ІНФО */}
         {/* ============================== */}
         {activeTab === 'info' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
@@ -1236,7 +1361,6 @@ function App() {
               </p>
             </div>
             
-            {/* АДМІН-ПАНЕЛЬ ТІЛЬКИ ДЛЯ ТЕБЕ */}
             {String(user.id) === ADMIN_TELEGRAM_ID && (
               <div className="bg-red-900/50 border-2 border-red-500 p-5 rounded-3xl mb-6">
                 <h3 className="text-white font-bold mb-2 text-center">Меню Адміністратора</h3>
@@ -1253,10 +1377,10 @@ function App() {
       </div>
 
       {/* ========================================== */}
-      {/* НИЖНЯ ПАНЕЛЬ НАВІГАЦІЇ */}
+      {/* НИЖНЯ ПАНЕЛЬ НАВІГАЦІЇ (5 КНОПОК) */}
       {/* ========================================== */}
 
-      <div className="absolute bottom-0 left-0 right-0 h-[80px] bg-gray-900/95 backdrop-blur-lg border-t border-gray-800 grid grid-cols-4 px-1 pb-safe z-40">
+      <div className="absolute bottom-0 left-0 right-0 h-[80px] bg-gray-900/95 backdrop-blur-lg border-t border-gray-800 grid grid-cols-5 px-1 pb-safe z-40">
         
         <button
           onClick={() => {
@@ -1268,7 +1392,7 @@ function App() {
           }`}
         >
           <span className="text-2xl mb-1">🦆</span>
-          <span className="text-[10px] font-bold uppercase">Грай</span>
+          <span className="text-[9px] font-bold uppercase">Грай</span>
         </button>
         
         <button
@@ -1281,7 +1405,7 @@ function App() {
           }`}
         >
           <span className="text-2xl mb-1">🛒</span>
-          <span className="text-[10px] font-bold uppercase">Магазин</span>
+          <span className="text-[9px] font-bold uppercase">Магазин</span>
         </button>
         
         <button
@@ -1294,7 +1418,20 @@ function App() {
           }`}
         >
           <span className="text-2xl mb-1">🎯</span>
-          <span className="text-[10px] font-bold uppercase">Завдання</span>
+          <span className="text-[9px] font-bold uppercase">Завдання</span>
+        </button>
+
+        <button
+          onClick={() => {
+            triggerSelection();
+            setActiveTab('friends');
+          }}
+          className={`flex flex-col items-center justify-center transition-colors ${
+            activeTab === 'friends' ? 'text-yellow-400' : 'text-gray-500'
+          }`}
+        >
+          <span className="text-2xl mb-1">👥</span>
+          <span className="text-[9px] font-bold uppercase">Друзі</span>
         </button>
         
         <button
@@ -1307,7 +1444,7 @@ function App() {
           }`}
         >
           <span className="text-2xl mb-1">ℹ️</span>
-          <span className="text-[10px] font-bold uppercase">Інфо</span>
+          <span className="text-[9px] font-bold uppercase">Інфо</span>
         </button>
 
       </div>

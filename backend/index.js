@@ -41,9 +41,12 @@ const User = sequelize.define('User', {
   unlocked_skins: { type: DataTypes.JSON, defaultValue: ['default'] },
   achievements: { type: DataTypes.JSON, defaultValue: [] },
   businesses: { type: DataTypes.JSON, defaultValue: {} },
+  
   referrer_id: { type: DataTypes.STRING, allowNull: true },
-  referrer_rewarded: { type: DataTypes.BOOLEAN, defaultValue: false },
   referrals_count: { type: DataTypes.INTEGER, defaultValue: 0 },
+  // 🔥 Нові поля для ручного контролю бонусів друзів 🔥
+  ref_reward_lvl3_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
+  ref_reward_lvl5_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   
   boost_until: { type: DataTypes.DATE, allowNull: true },
   boost_multiplier: { type: DataTypes.INTEGER, defaultValue: 1 },
@@ -130,22 +133,6 @@ setInterval(async () => {
   }
 }, 1000 * 60 * 30);
 
-const checkReferralReward = async (user) => {
-  if (user.level >= 3 && user.referrer_id && !user.referrer_rewarded) {
-    try {
-      const referrer = await User.findByPk(String(user.referrer_id));
-      if (referrer) { 
-        referrer.season_points = Number(referrer.season_points) + 50000; 
-        referrer.total_earned = Number(referrer.total_earned) + 50000; 
-        referrer.referrals_count += 1; 
-        await referrer.save(); 
-      }
-      user.referrer_rewarded = true; 
-      await user.save();
-    } catch (err) {}
-  }
-};
-
 const calculateOfflineProgress = async (user) => {
   const now = new Date();
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -171,11 +158,10 @@ const calculateOfflineProgress = async (user) => {
   }
   
   let passiveEarned = 0;
-  // 🔥 ТЕПЕР ДОХІД РАХУЄТЬСЯ ЗА ГОДИНУ 🔥
   let currentPassivePerSec = user.passive_income / 3600;
   
   if (user.auto_click_until && new Date(user.auto_click_until) > now) {
-    currentPassivePerSec += (7 * user.level); // Автоклік дає 7 тапів в секунду
+    currentPassivePerSec += (7 * user.level);
   }
   
   if (currentPassivePerSec > 0) {
@@ -239,6 +225,7 @@ app.post('/api/user/init', async (req, res) => {
   try {
     let user = await User.findByPk(String(telegram_id), { include: Squad });
     let referrer_id = null; let squad_to_join = null;
+    
     if (start_param) { 
       if (start_param.startsWith('squad_')) squad_to_join = start_param.replace('squad_', ''); 
       else referrer_id = start_param; 
@@ -246,12 +233,14 @@ app.post('/api/user/init', async (req, res) => {
     
     if (!user) {
       let startingPoints = 0;
-      if (referrer_id) {
+      // Даємо 10,000 на старті, якщо прийшов від друга
+      if (referrer_id && referrer_id !== String(telegram_id)) {
         startingPoints = 10000; 
         const referrer = await User.findByPk(String(referrer_id));
         if (referrer) { 
           referrer.season_points = Number(referrer.season_points) + 10000; 
           referrer.total_earned = Number(referrer.total_earned) + 10000; 
+          referrer.referrals_count += 1; 
           await referrer.save(); 
         }
       }
@@ -277,7 +266,6 @@ app.post('/api/user/init', async (req, res) => {
     
     const progress = await calculateOfflineProgress(user);
     await progress.user.save(); 
-    await checkReferralReward(progress.user);
     
     const active_boost = progress.user.boost_until && new Date(progress.user.boost_until) > new Date();
     const auto_click = progress.user.auto_click_until && new Date(progress.user.auto_click_until) > new Date();
@@ -285,6 +273,64 @@ app.post('/api/user/init', async (req, res) => {
     res.json({ user: { ...progress.user.get(), active_boost, auto_click }, offline_earned: progress.passiveEarned, daily_available: progress.dailyAvailable });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
+  }
+});
+
+// 🔥 НОВИЙ ЕНДПОІНТ: Отримати список друзів 🔥
+app.get('/api/user/friends', async (req, res) => {
+  const { telegram_id } = req.query;
+  try {
+    const friends = await User.findAll({
+      where: { referrer_id: String(telegram_id) },
+      attributes: ['telegram_id', 'first_name', 'level', 'total_earned', 'ref_reward_lvl3_claimed', 'ref_reward_lvl5_claimed']
+    });
+    res.json({ friends });
+  } catch (err) { 
+    res.status(500).json({ error: 'Server error' }); 
+  }
+});
+
+// 🔥 НОВИЙ ЕНДПОІНТ: Забрати бонус за рівень друга 🔥
+app.post('/api/user/claim_ref_reward', async (req, res) => {
+  const { telegram_id, friend_id, reward_level } = req.body;
+  try {
+    const user = await User.findByPk(String(telegram_id));
+    const friend = await User.findByPk(String(friend_id));
+
+    if (!user || !friend || friend.referrer_id !== String(telegram_id)) {
+      return res.status(400).json({ error: 'Помилка доступу до реферала' });
+    }
+
+    if (friend.level < reward_level) {
+      return res.status(400).json({ error: 'Друг ще не досяг цього рівня' });
+    }
+
+    let reward = 0;
+    if (reward_level === 3 && !friend.ref_reward_lvl3_claimed) {
+      reward = 50000;
+      friend.ref_reward_lvl3_claimed = true;
+    } else if (reward_level === 5 && !friend.ref_reward_lvl5_claimed) {
+      reward = 250000;
+      friend.ref_reward_lvl5_claimed = true;
+    } else {
+      return res.status(400).json({ error: 'Нагорода вже отримана' });
+    }
+
+    await friend.save();
+
+    user.season_points = Number(user.season_points) + reward;
+    user.total_earned = Number(user.total_earned) + reward;
+
+    let new_level = 1;
+    for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+      if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; }
+    }
+    user.level = new_level > 10 ? 10 : new_level;
+
+    await user.save();
+    res.json({ user: user.get(), reward });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -316,7 +362,6 @@ app.post('/api/user/tap', async (req, res) => {
       await Squad.increment('total_points', { by: points_to_add, where: { username: user.squad_id } });
     }
     
-    await checkReferralReward(user);
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > new Date();
     res.json({ user: { ...user.get(), active_boost, auto_click } });
   } catch (error) { 
@@ -340,28 +385,24 @@ app.post('/api/user/ad_boost', async (req, res) => {
       if (!fallback) { user.energy = MAX_ENERGY; user.last_energy_update = now; }
       user.ad_energy_left -= 1; 
       user.ad_energy_ready_at = cooldownEnd;
-      
     } else if (boost_type === 'x5') { 
       if (user.ad_x5_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
       if (user.ad_x5_ready_at && new Date(user.ad_x5_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
       if (!fallback) { user.boost_until = new Date(now.getTime() + 5 * 60 * 1000); user.boost_multiplier = 5; }
       user.ad_x5_left -= 1; 
       user.ad_x5_ready_at = cooldownEnd;
-      
     } else if (boost_type === 'autoclick') { 
       if (user.ad_autoclick_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
       if (user.ad_autoclick_ready_at && new Date(user.ad_autoclick_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
       if (!fallback) { user.auto_click_until = new Date(now.getTime() + 3 * 60 * 1000); }
       user.ad_autoclick_left -= 1; 
       user.ad_autoclick_ready_at = cooldownEnd;
-      
     } else if (boost_type === 'magnet') { 
       if (user.ad_magnet_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
       if (user.ad_magnet_ready_at && new Date(user.ad_magnet_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
       if (!fallback) { user.season_points = Number(user.season_points) + 5000; user.total_earned = Number(user.total_earned) + 5000; }
       user.ad_magnet_left -= 1; 
       user.ad_magnet_ready_at = cooldownEnd;
-      
     } else {
       return res.status(400).json({ error: 'Невідомий буст' });
     }
@@ -438,13 +479,11 @@ app.post('/api/user/buy_upgrade', async (req, res) => {
     
     if (user.season_points < cost) return res.status(400).json({ error: 'Недостатньо монет' });
     const requiredRefs = SHOP_ITEMS_DB[item_id]?.reqRefs || 0;
-    
     if (user.referrals_count < requiredRefs) { 
       return res.status(400).json({ error: `Треба запросити ще активних друзів. Мінімум: ${requiredRefs}` }); 
     }
     
     user.season_points = Number(user.season_points) - cost; 
-    // 🔥 ДОХІД ТЕПЕР ЗАПИСУЄТЬСЯ ЯК "ЗА ГОДИНУ" 🔥
     user.passive_income += income_increase; 
     
     let biz = user.businesses || {}; 
@@ -532,7 +571,6 @@ app.post('/api/user/claim_task', async (req, res) => {
     user.level = new_level > 10 ? 10 : new_level; 
     
     await user.save(); 
-    await checkReferralReward(user); 
     return res.json({ user: user.get(), reward });
   } catch (err) { 
     res.status(500).json({ error: 'Server error' }); 
@@ -551,7 +589,6 @@ app.post('/api/user/reset', async (req, res) => {
     user.daily_streak = 0; 
     user.last_daily_claim = null; 
     user.free_energy_refills = 3; 
-    user.referrer_rewarded = false; 
     user.boost_until = null; 
     user.auto_click_until = null; 
     user.achievements = []; 
