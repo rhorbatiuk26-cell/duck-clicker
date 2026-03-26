@@ -847,7 +847,9 @@ function App() {
 
       <div className="flex-1 flex flex-col overflow-hidden relative pb-[85px]">
         
+        {/* ============================== */}
         {/* ВКЛАДКА: ГРАЙ */}
+        {/* ============================== */}
         {activeTab === 'tap' && (
           <div className="flex-1 flex flex-col px-4 animate-fade-in">
             
@@ -904,18 +906,24 @@ function App() {
                 </span>
               </div>
               
-              <div className="w-full bg-gray-900 rounded-full h-4 overflow-hidden border border-gray-950 shadow-inner relative">
+              {/* 🔥 ОСЬ ТУТ Я ДОДАВ ЦИФРИ ПРОГРЕСУ В ШКАЛУ 🔥 */}
+              <div className="w-full bg-gray-900 rounded-full h-5 overflow-hidden border border-gray-950 shadow-inner relative flex items-center justify-center">
                 <div
-                  className="bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-300 h-full transition-all duration-300 rounded-full"
+                  className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-300 transition-all duration-300 rounded-full"
                   style={{ width: `${Math.min(level < 10 ? ((totalEarned - LEVEL_THRESHOLDS[level-1]) / (LEVEL_THRESHOLDS[level] - LEVEL_THRESHOLDS[level-1])) * 100 : 100, 100)}%` }}
                 ></div>
+                <span className="relative z-10 text-[10px] font-black text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)] tracking-wider">
+                  {level < 10 ? `${Math.floor(totalEarned)} / ${LEVEL_THRESHOLDS[level]}` : 'MAX LEVEL'}
+                </span>
               </div>
               
             </div>
           </div>
         )}
 
+        {/* ============================== */}
         {/* ВКЛАДКА: МАГАЗИН */}
+        {/* ============================== */}
         {activeTab === 'shop' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
             
@@ -1036,7 +1044,9 @@ function App() {
           </div>
         )}
 
+        {/* ============================== */}
         {/* ВКЛАДКА: ЗАВДАННЯ */}
+        {/* ============================== */}
         {activeTab === 'tasks' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
             
@@ -1186,24 +1196,47 @@ function App() {
           </div>
         )}
 
-        {/* ВКЛАДКА: ІНФО */}
+        {/* ============================== */}
+        {/* 🔥 ВКЛАДКА: ПОВНЕ ІНФО 🔥 */}
+        {/* ============================== */}
         {activeTab === 'info' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
             <h2 className="text-2xl font-black text-yellow-400 mb-4 text-center">ℹ️ Інфо та Правила</h2>
+            
             <div className="bg-gray-800 border border-gray-700 p-5 rounded-3xl text-sm text-gray-300 space-y-4 mb-6 shadow-xl">
               <p>
-                <strong className="text-green-400 text-base">💸 Жодних Донатів:</strong> Найголовніший донат — це ваш час!
+                <strong className="text-yellow-400 text-base">🦆 Мета гри:</strong> Клікай, заробляй монети, купуй бізнеси та піднімайся в лігах. Чим вищий рівень — тим більший заробіток!
               </p>
+              
+              <hr className="border-gray-700"/>
+              
               <p>
-                <strong className="text-white text-base">1. Чесний рейтинг:</strong> Нагороди отримують ті, хто закріпився в ТОП-11 рейтингу на момент закінчення сезону (1-го числа о 00:00).
+                <strong className="text-green-400 text-base">💸 Жодних Донатів:</strong> Найголовніший донат — це ваш час! Ми не продаємо нічого за реальні гроші.
               </p>
+              
+              <hr className="border-gray-700"/>
+              
               <p>
-                <strong className="text-yellow-400 text-base">2. Призовий фонд:</strong> Ми віддаємо 15% від усього доходу з реклами щомісяця.
+                <strong className="text-white text-base">🏆 Чесний рейтинг:</strong> Нагороди отримують ті, хто закріпився в ТОП-11 рейтингу на момент закінчення сезону (1-го числа о 00:00).
+              </p>
+              
+              <hr className="border-gray-700"/>
+              
+              <p>
+                <strong className="text-blue-400 text-base">🛡️ Сквади (Команди):</strong> Об'єднуйся з друзями! Якщо ваш сквад перемагає, 50% нагороди отримує творець скваду, а інші 50% діляться між найактивнішими учасниками.
+              </p>
+              
+              <hr className="border-gray-700"/>
+              
+              <p>
+                <strong className="text-orange-400 text-base">💰 Призовий фонд:</strong> Ми віддаємо 15% від усього доходу з реклами щомісяця реальним гравцям.
               </p>
             </div>
             
+            {/* АДМІН-ПАНЕЛЬ ТІЛЬКИ ДЛЯ ТЕБЕ */}
             {String(user.id) === ADMIN_TELEGRAM_ID && (
               <div className="bg-red-900/50 border-2 border-red-500 p-5 rounded-3xl mb-6">
+                <h3 className="text-white font-bold mb-2 text-center">Меню Адміністратора</h3>
                 <button
                   onClick={endSeasonAdmin}
                   className="bg-red-600 text-white font-black py-4 rounded-xl w-full active:scale-95 transition-all"
@@ -1461,7 +1494,7 @@ function App() {
       )}
 
       {/* ========================================== */}
-      {/* CSS-АНІМАЦІЇ */}
+      {/* CSS-Анімації */}
       {/* ========================================== */}
       <style>{`
         @keyframes floatUp { 
