@@ -1,53 +1,26 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import path from 'path'; // Додай це
-import { fileURLToPath } from 'url'; // Додай це
-import { Sequelize, DataTypes } from 'sequelize';
-import TelegramBot from 'node-telegram-bot-api';
+import { Sequelize, DataTypes, Op } from 'sequelize';
+import https from 'https';
 
 dotenv.config();
 
 const app = express();
-
-// Налаштування для роботи з папкою dist
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
 
-// Вказуємо шлях до папки dist, яка лежить ПОРУЧ із backend
-app.use(express.static(path.join(__dirname, '../dist')));
-
-// Маршрут для головної сторінки гри
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist', 'index.html'));
-});
-
-// ПОРТ (використовуємо той, що дає Railway)
-const PORT = process.env.PORT || 3000;
-
-// Твій старий код (Sequelize, Bot тощо) залишається нижче без змін...
-// ------------------------------------------
-
-// Далі йде твій старий код бота та інше...
-// app.listen(PORT, ...
-
 // ==========================================
-// БАЗА ДАНИХ (SEQUELIZE)
+// БАЗА ДАНИХ
 // ==========================================
 
 const sequelize = new Sequelize(process.env.DATABASE_URL || 'sqlite::memory:', {
   dialect: process.env.DATABASE_URL ? 'postgres' : 'sqlite',
   protocol: process.env.DATABASE_URL ? 'postgres' : 'sqlite',
   logging: false,
-  dialectOptions: process.env.DATABASE_URL ? {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false
-    }
-  } : {}
+  dialectOptions: process.env.DATABASE_URL ? { ssl: { require: true, rejectUnauthorized: false } } : {}
 });
 
 const Squad = sequelize.define('Squad', {
@@ -71,6 +44,7 @@ const User = sequelize.define('User', {
   
   referrer_id: { type: DataTypes.STRING, allowNull: true },
   referrals_count: { type: DataTypes.INTEGER, defaultValue: 0 },
+  // 🔥 Нові поля для ручного контролю бонусів друзів 🔥
   ref_reward_lvl3_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   ref_reward_lvl5_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   
@@ -107,13 +81,9 @@ User.belongsTo(Squad, { foreignKey: 'squad_id' });
 
 sequelize.sync({ alter: true }).then(() => console.log('✅ База даних успішно оновлена!'));
 
-// ==========================================
-// КОНСТАНТИ ГРИ ТА ХЕЛПЕРИ
-// ==========================================
-
 const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
 const MAX_ENERGY = 2000;
-const MAX_OFFLINE_SECONDS = 3 * 60 * 60; 
+const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
 
 const SHOP_ITEMS_DB = {
   1: { reqRefs: 0 }, 2: { reqRefs: 0 }, 3: { reqRefs: 0 }, 4: { reqRefs: 0 }, 
@@ -121,54 +91,34 @@ const SHOP_ITEMS_DB = {
   9: { reqRefs: 3 }, 10: { reqRefs: 7 } 
 };
 
+// ==========================================
+// ХЕЛПЕРИ
+// ==========================================
+
 const sendTelegramMessage = async (chatId, text) => {
   const token = process.env.BOT_TOKEN;
   if (!token || !chatId) return;
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
   try { 
-    await fetch(url, { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'HTML' }) 
-    }); 
-  } catch (e) {
-    console.error("Помилка відправки повідомлення адміну:", e);
-  }
+    await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'HTML' }) }); 
+  } catch (e) {}
 };
 
 const endSeasonAndNotify = async () => {
   const adminId = process.env.ADMIN_TELEGRAM_ID;
   if (!adminId) return { error: "Немає ADMIN_TELEGRAM_ID" };
-  
   try {
     const topUsers = await User.findAll({ order: [['total_earned', 'DESC']], limit: 11 });
     const topSquad = await Squad.findOne({ order: [['total_points', 'DESC']] });
     
-    let msg = `🚨 <b>СЕЗОН ЗАВЕРШЕНО!</b> 🚨\n\n🏆 <b>ТОП-11 ГРАВЦІВ:</b>\n`;
+    let msg = `🚨 <b>СЕЗОН ЗАВЕРШЕНО!</b> 🚨\n\n🏆 <b>ТОП ГРАВЦІ:</b>\n`;
     topUsers.forEach((u, i) => { 
-      msg += `${i+1}. <a href="tg://user?id=${u.telegram_id}">${u.first_name}</a> — ${u.total_earned.toLocaleString()} 💰\n`; 
+      msg += `${i+1}. <a href="tg://user?id=${u.telegram_id}">${u.first_name}</a> — ${u.total_earned} 🏆\n`; 
     });
-
-    msg += `\n🛡 <b>ТОП-1 СКВАД:</b>\n`;
-    if (topSquad) {
-      msg += `👑 <b>${topSquad.name}</b>\nБаланс: ${topSquad.total_points.toLocaleString()} 🏆\nУчасників: ${topSquad.members_count}`;
-    } else {
-      msg += `Сквадів немає.`;
-    }
     
     await sendTelegramMessage(adminId, msg);
-    
-    await User.update({ 
-      season_points: 0, 
-      total_earned: 0, 
-      level: 1, 
-      energy: MAX_ENERGY, 
-      passive_income: 0, 
-      businesses: {} 
-    }, { where: {} });
-    
+    await User.update({ season_points: 0, total_earned: 0, level: 1, energy: MAX_ENERGY, passive_income: 0, businesses: {} }, { where: {} });
     await Squad.update({ total_points: 0 }, { where: {} });
-    
     return { success: true };
   } catch (error) { 
     return { error: "Внутрішня помилка" }; 
@@ -185,10 +135,8 @@ setInterval(async () => {
 
 const calculateOfflineProgress = async (user) => {
   const now = new Date();
-  const today = new Date(); 
-  today.setHours(0, 0, 0, 0);
-  const lastReset = new Date(user.last_boost_reset); 
-  lastReset.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const lastReset = new Date(user.last_boost_reset); lastReset.setHours(0, 0, 0, 0);
   
   if (today > lastReset) { 
     user.free_energy_refills = 3; 
@@ -243,12 +191,10 @@ const calculateOfflineProgress = async (user) => {
   if (!lastClaim) {
     dailyAvailable = true;
   } else {
-    const claimDay = new Date(lastClaim); 
-    claimDay.setHours(0, 0, 0, 0);
+    const claimDay = new Date(lastClaim); claimDay.setHours(0, 0, 0, 0);
     const diffDays = Math.round((today - claimDay) / (1000 * 60 * 60 * 24));
-    
     if (diffDays === 1) dailyAvailable = true; 
-    else if (diffDays > 1) { dailyAvailable = true; user.daily_streak = 0; } 
+    else if (diffDays > 1) { dailyAvailable = true; user.daily_streak = 0; }
   }
   
   return { user, passiveEarned, dailyAvailable };
@@ -256,47 +202,38 @@ const calculateOfflineProgress = async (user) => {
 
 const checkTelegramSubscription = (userId) => {
   return new Promise((resolve) => {
-    const botToken = process.env.BOT_TOKEN; 
-    const channel = process.env.CHANNEL_USERNAME;
-    
+    const botToken = process.env.BOT_TOKEN; const channel = process.env.CHANNEL_USERNAME;
     if (!botToken || !channel) return resolve(false);
-    
     https.get(`https://api.telegram.org/bot${botToken}/getChatMember?chat_id=${channel}&user_id=${userId}`, (res) => {
-      let data = ''; 
-      res.on('data', chunk => data += chunk);
+      let data = ''; res.on('data', chunk => data += chunk);
       res.on('end', () => { 
         try { 
           const result = JSON.parse(data); 
           resolve(result.ok && ['member', 'administrator', 'creator'].includes(result.result.status)); 
-        } catch (e) { 
-          resolve(false); 
-        } 
+        } catch (e) { resolve(false); } 
       });
     }).on('error', () => resolve(false));
   });
 };
 
 // ==========================================
-// ЕНДПОІНТИ (API REST)
+// ЕНДПОІНТИ
 // ==========================================
 
 app.post('/api/user/init', async (req, res) => {
   const { telegram_id, first_name, start_param } = req.body;
   try {
     let user = await User.findByPk(String(telegram_id), { include: Squad });
-    let referrer_id = null; 
-    let squad_to_join = null;
+    let referrer_id = null; let squad_to_join = null;
     
     if (start_param) { 
-      if (start_param.startsWith('squad_')) {
-        squad_to_join = start_param.replace('squad_', ''); 
-      } else {
-        referrer_id = start_param; 
-      }
+      if (start_param.startsWith('squad_')) squad_to_join = start_param.replace('squad_', ''); 
+      else referrer_id = start_param; 
     }
     
     if (!user) {
       let startingPoints = 0;
+      // Даємо 10,000 на старті, якщо прийшов від друга
       if (referrer_id && referrer_id !== String(telegram_id)) {
         startingPoints = 10000; 
         const referrer = await User.findByPk(String(referrer_id));
@@ -307,7 +244,6 @@ app.post('/api/user/init', async (req, res) => {
           await referrer.save(); 
         }
       }
-      
       user = await User.create({ 
         telegram_id: String(telegram_id), 
         first_name: first_name || 'Гравець', 
@@ -322,7 +258,6 @@ app.post('/api/user/init', async (req, res) => {
     if (squad_to_join && user.squad_id !== squad_to_join) {
       let squad = await Squad.findByPk(squad_to_join); 
       if (!squad) squad = await Squad.create({ username: squad_to_join, name: `@${squad_to_join}` });
-      
       if (user.squad_id) await Squad.decrement('members_count', { by: 1, where: { username: user.squad_id } });
       user.squad_id = squad_to_join; 
       await user.save(); 
@@ -335,16 +270,13 @@ app.post('/api/user/init', async (req, res) => {
     const active_boost = progress.user.boost_until && new Date(progress.user.boost_until) > new Date();
     const auto_click = progress.user.auto_click_until && new Date(progress.user.auto_click_until) > new Date();
     
-    res.json({ 
-      user: { ...progress.user.get(), active_boost, auto_click }, 
-      offline_earned: progress.passiveEarned, 
-      daily_available: progress.dailyAvailable 
-    });
+    res.json({ user: { ...progress.user.get(), active_boost, auto_click }, offline_earned: progress.passiveEarned, daily_available: progress.dailyAvailable });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
   }
 });
 
+// 🔥 НОВИЙ ЕНДПОІНТ: Отримати список друзів 🔥
 app.get('/api/user/friends', async (req, res) => {
   const { telegram_id } = req.query;
   try {
@@ -358,6 +290,7 @@ app.get('/api/user/friends', async (req, res) => {
   }
 });
 
+// 🔥 НОВИЙ ЕНДПОІНТ: Забрати бонус за рівень друга 🔥
 app.post('/api/user/claim_ref_reward', async (req, res) => {
   const { telegram_id, friend_id, reward_level } = req.body;
   try {
@@ -404,13 +337,10 @@ app.post('/api/user/claim_ref_reward', async (req, res) => {
 app.post('/api/user/tap', async (req, res) => {
   const { telegram_id, count = 1 } = req.body;
   const actualTouches = Math.min(Number(count) || 10, 15);
-  
   try {
     const user = await User.findByPk(String(telegram_id));
     if (!user) return res.status(404).json({ error: 'Not found' });
-    
     await calculateOfflineProgress(user);
-    
     if (user.energy < actualTouches) return res.status(400).json({ error: 'Недостатньо енергії' });
     
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
@@ -426,7 +356,6 @@ app.post('/api/user/tap', async (req, res) => {
       if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } 
     }
     user.level = new_level > 10 ? 10 : new_level;
-    
     await user.save();
     
     if (user.squad_id) {
@@ -456,28 +385,24 @@ app.post('/api/user/ad_boost', async (req, res) => {
       if (!fallback) { user.energy = MAX_ENERGY; user.last_energy_update = now; }
       user.ad_energy_left -= 1; 
       user.ad_energy_ready_at = cooldownEnd;
-      
     } else if (boost_type === 'x5') { 
       if (user.ad_x5_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
       if (user.ad_x5_ready_at && new Date(user.ad_x5_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
-      if (!fallback) { user.boost_until = new Date(now.getTime() + 5 * 60 * 1000); user.boost_multiplier = 5; } 
+      if (!fallback) { user.boost_until = new Date(now.getTime() + 5 * 60 * 1000); user.boost_multiplier = 5; }
       user.ad_x5_left -= 1; 
       user.ad_x5_ready_at = cooldownEnd;
-      
     } else if (boost_type === 'autoclick') { 
       if (user.ad_autoclick_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
       if (user.ad_autoclick_ready_at && new Date(user.ad_autoclick_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
-      if (!fallback) { user.auto_click_until = new Date(now.getTime() + 3 * 60 * 1000); } 
+      if (!fallback) { user.auto_click_until = new Date(now.getTime() + 3 * 60 * 1000); }
       user.ad_autoclick_left -= 1; 
       user.ad_autoclick_ready_at = cooldownEnd;
-      
     } else if (boost_type === 'magnet') { 
       if (user.ad_magnet_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
       if (user.ad_magnet_ready_at && new Date(user.ad_magnet_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
       if (!fallback) { user.season_points = Number(user.season_points) + 5000; user.total_earned = Number(user.total_earned) + 5000; }
       user.ad_magnet_left -= 1; 
       user.ad_magnet_ready_at = cooldownEnd;
-      
     } else {
       return res.status(400).json({ error: 'Невідомий буст' });
     }
@@ -492,12 +417,10 @@ app.post('/api/user/ad_boost', async (req, res) => {
       if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } 
     }
     user.level = new_level > 10 ? 10 : new_level;
-    
     await user.save();
     
     const active_boost = user.boost_until && new Date(user.boost_until) > now;
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
-    
     res.json({ user: { ...user.get(), active_boost, auto_click } });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
@@ -509,7 +432,6 @@ app.post('/api/squad/join', async (req, res) => {
   try {
     const cleanUsername = squad_username.replace('@', '').trim();
     if (!cleanUsername) return res.status(400).json({ error: 'Порожнє ім\'я' });
-    
     const user = await User.findByPk(String(telegram_id));
     let squad = await Squad.findByPk(cleanUsername); 
     if (!squad) squad = await Squad.create({ username: cleanUsername, name: `@${cleanUsername}` });
@@ -520,7 +442,6 @@ app.post('/api/squad/join', async (req, res) => {
       await user.save(); 
       await Squad.increment('members_count', { by: 1, where: { username: cleanUsername } }); 
     }
-    
     res.json({ user: user.get(), squad: squad.get() });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
@@ -543,7 +464,6 @@ app.post('/api/user/buy_skin', async (req, res) => {
       user.unlocked_skins = skins; 
       user.current_skin = skin_id; 
     }
-    
     await user.save(); 
     res.json({ user: user.get() });
   } catch (error) { 
@@ -558,10 +478,9 @@ app.post('/api/user/buy_upgrade', async (req, res) => {
     await calculateOfflineProgress(user);
     
     if (user.season_points < cost) return res.status(400).json({ error: 'Недостатньо монет' });
-    
     const requiredRefs = SHOP_ITEMS_DB[item_id]?.reqRefs || 0;
     if (user.referrals_count < requiredRefs) { 
-      return res.status(400).json({ error: `Потрібно ${requiredRefs} активних друзів.` }); 
+      return res.status(400).json({ error: `Треба запросити ще активних друзів. Мінімум: ${requiredRefs}` }); 
     }
     
     user.season_points = Number(user.season_points) - cost; 
@@ -572,7 +491,6 @@ app.post('/api/user/buy_upgrade', async (req, res) => {
     user.businesses = biz; 
     user.changed('businesses', true); 
     user.last_passive_collect = new Date(); 
-    
     await user.save(); 
     res.json({ user: user.get() });
   } catch (err) { 
@@ -588,9 +506,9 @@ app.post('/api/user/achievement', async (req, res) => {
     
     let achs = user.achievements || [];
     if (achs.includes(achievement_id)) return res.status(400).json({ error: 'Вже отримано' });
-    
-    if (achievement_id === 'ref_3' && user.referrals_count < 3) return res.status(400).json({ error: 'Мало друзів' });
-    if (achievement_id === 'ref_10' && user.referrals_count < 10) return res.status(400).json({ error: 'Мало друзів' });
+    if (achievement_id === 'ref_3' && user.referrals_count < 3) return res.status(400).json({ error: 'Недостатньо друзів' });
+    if (achievement_id === 'ref_10' && user.referrals_count < 10) return res.status(400).json({ error: 'Недостатньо друзів' });
+    if (achievement_id === 'ref_50' && user.referrals_count < 50) return res.status(400).json({ error: 'Недостатньо друзів' });
     
     achs.push(achievement_id); 
     user.achievements = achs; 
@@ -602,7 +520,6 @@ app.post('/api/user/achievement', async (req, res) => {
       if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } 
     }
     user.level = new_level > 10 ? 10 : new_level; 
-    
     await user.save(); 
     return res.json({ user: user.get(), reward });
   } catch (error) { 
@@ -615,19 +532,15 @@ app.post('/api/user/daily', async (req, res) => {
   try {
     const user = await User.findByPk(String(telegram_id)); 
     const progress = await calculateOfflineProgress(user);
-    
     if (!progress.dailyAvailable) return res.status(400).json({ error: 'Вже отримано' });
     
     user.daily_streak = Math.min((user.daily_streak || 0) + 1, 7);
-    const bonusAmounts = [0, 500, 1000, 2500, 5000, 15000, 30000, 100000]; 
-    const reward = bonusAmounts[user.daily_streak];
-    
-    user.season_points = Number(user.season_points) + reward; 
-    user.total_earned = Number(user.total_earned) + reward;
+    const bonusAmounts = [0, 500, 1000, 2500, 5000, 15000, 30000, 100000];
+    user.season_points = Number(user.season_points) + bonusAmounts[user.daily_streak]; 
+    user.total_earned = Number(user.total_earned) + bonusAmounts[user.daily_streak];
     user.last_daily_claim = new Date(); 
-    
     await user.save(); 
-    res.json({ user: user.get(), reward });
+    res.json({ user: user.get(), reward: bonusAmounts[user.daily_streak] });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
   }
@@ -684,12 +597,17 @@ app.post('/api/user/reset', async (req, res) => {
     user.squad_id = null; 
     user.task_tg_claimed = false; 
     user.task_x_claimed = false; 
+    user.task_yt_claimed = false; 
+    user.task_ig_claimed = false;
     user.ad_energy_left = 3; 
     user.ad_x5_left = 3; 
     user.ad_autoclick_left = 3; 
-    user.ad_magnet_left = 3; 
+    user.ad_magnet_left = 3;
+    user.ad_energy_ready_at = null; 
+    user.ad_x5_ready_at = null; 
+    user.ad_autoclick_ready_at = null; 
+    user.ad_magnet_ready_at = null; 
     user.businesses = {}; 
-    
     await user.save(); 
     res.json({ user: user.get() });
   } catch (err) { 
@@ -698,9 +616,6 @@ app.post('/api/user/reset', async (req, res) => {
 });
 
 app.post('/api/admin/end_season', async (req, res) => { 
-  const { admin_id } = req.body;
-  if (String(admin_id) !== process.env.ADMIN_TELEGRAM_ID) return res.status(403).json({ error: "No access" });
-  
   const result = await endSeasonAndNotify(); 
   if (result.success) res.json({ success: true }); 
   else res.status(500).json({ error: result.error }); 
@@ -709,29 +624,15 @@ app.post('/api/admin/end_season', async (req, res) => {
 app.get('/api/leaderboard', async (req, res) => {
   const { telegram_id } = req.query;
   try {
-    const topUsers = await User.findAll({ 
-      order: [['total_earned', 'DESC']], 
-      limit: 100, 
-      attributes: ['telegram_id', 'first_name', 'total_earned', 'level']
-    });
-    
-    const topSquads = await Squad.findAll({ 
-      order: [['total_points', 'DESC']], 
-      limit: 50 
-    });
-    
+    const topUsers = await User.findAll({ order: [['total_earned', 'DESC']], limit: 100, attributes: ['telegram_id', 'first_name', 'total_earned', 'level']});
+    const topSquads = await Squad.findAll({ order: [['total_points', 'DESC']], limit: 50 });
     let currentUserRank = null; 
     let currentUserData = null;
     
     if (telegram_id) { 
-      currentUserData = await User.findByPk(String(telegram_id), { 
-        attributes: ['telegram_id', 'first_name', 'total_earned', 'level', 'squad_id'] 
-      }); 
-      
+      currentUserData = await User.findByPk(String(telegram_id), { attributes: ['telegram_id', 'first_name', 'total_earned', 'level', 'squad_id'] }); 
       if (currentUserData) { 
-        const higherScoresCount = await User.count({ 
-          where: { total_earned: { [Op.gt]: currentUserData.total_earned } } 
-        }); 
+        const higherScoresCount = await User.count({ where: { total_earned: { [Op.gt]: currentUserData.total_earned } } }); 
         currentUserRank = higherScoresCount + 1; 
       } 
     }
@@ -742,85 +643,4 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
-// ==========================================
-// ЛОГІКА ТЕЛЕГРАМ БОТА (Відповідь на /start)
-// ==========================================
-const botToken = process.env.BOT_TOKEN;
-// ВАЖЛИВО: Переконайся, що в Railway в змінних (Variables) є BOT_TOKEN!
-const webAppUrl = process.env.WEBAPP_URL || 'https://duck-clicker-production.up.railway.app'; 
-
-if (botToken) {
-  let lastUpdateId = 0;
-  
-  const pollTelegram = async () => {
-    try {
-      const res = await fetch(`https://api.telegram.org/bot${botToken}/getUpdates?offset=${lastUpdateId + 1}&timeout=50`);
-      const data = await res.json();
-      
-      if (data.ok && data.result.length > 0) {
-        for (const update of data.result) {
-          lastUpdateId = update.update_id;
-          
-          if (update.message && update.message.text) {
-            const chatId = update.message.chat.id;
-            const text = update.message.text;
-            
-            if (text.startsWith('/start')) {
-              const startParam = text.split(' ')[1] || ''; 
-              
-              const msgText = `🦆 <b>Привіт в Gold Duck!</b>\n\nЦе не просто клікер. Це чесна гра, де ми віддаємо 20% доходу від реклами ТОП-гравцям та сквадам кожного місяця.\n\nТвій час — це твоя валюта! Жодних донатів.\n\n👇 <b>Натискай кнопку, щоб почати:</b>`;
-              
-              const finalUrl = startParam ? `${webAppUrl}?tgWebAppStartParam=${startParam}` : webAppUrl;
-
-              await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  chat_id: chatId,
-                  text: msgText,
-                  parse_mode: 'HTML',
-                  reply_markup: {
-                    inline_keyboard: [[
-                      { text: "🎮 ГРАТИ / PLAY", web_app: { url: finalUrl } }
-                    ]]
-                  }
-                })
-              });
-            }
-          }
-        }
-      }
-    } catch (e) {}
-    setTimeout(pollTelegram, 1000);
-  };
-  
-  console.log('🤖 Telegram Бот-слухач запущений...');
-  pollTelegram(); 
-}
-
-// ==========================================
-// РОЗДАЧА ФРОНТЕНДУ (З'єднання React та Node.js)
-// ==========================================
-
-const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath));
-
-// Розумна перевірка: якщо немає файлів гри, показуємо підказку, що треба зібрати фронтенд
-app.get('*', (req, res) => {
-  const indexPath = path.join(distPath, 'index.html');
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    // Якщо ти бачиш це червоне повідомлення у грі — отже на Railway не виконалась команда npm run build
-    res.status(404).send(`
-      <div style="font-family: sans-serif; text-align: center; padding: 50px; background: #111; color: #fff; height: 100vh;">
-        <h2>🚨 Помилка: Фронтенд не зібрано!</h2>
-        <p>Сервер Node.js працює чудово, але він не може знайти папку <b>dist</b> із грою.</p>
-        <p>Переконайся, що на Railway у налаштуваннях виконується команда збірки (наприклад: <code>npm run build</code>).</p>
-      </div>
-    `);
-  }
-});
-
-// Запуск сервера Express
 app.listen(PORT, () => console.log(`🚀 Сервер працює на порту ${PORT}`));
