@@ -3,12 +3,12 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { Sequelize, DataTypes, Op } from 'sequelize';
 import https from 'https';
-import path from 'path'; // 🔥 ДОДАНО ДЛЯ ФРОНТЕНДУ
-import { fileURLToPath } from 'url'; // 🔥 ДОДАНО ДЛЯ ФРОНТЕНДУ
+import path from 'path';
+import { fileURLToPath } from 'url';
+import TelegramBot from 'node-telegram-bot-api'; // 🔥 ДОДАНО ДЛЯ БОТА
 
 dotenv.config();
 
-// 🔥 ДОДАНО ДЛЯ ФРОНТЕНДУ (визначаємо шлях до папки)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -19,7 +19,7 @@ app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// 🔥 РОЗДАЧА ФРОНТЕНДУ (ГРИ) 🔥
+// РОЗДАЧА ФРОНТЕНДУ (ГРИ)
 // ==========================================
 app.use(express.static(path.join(__dirname, '../dist')));
 
@@ -55,7 +55,6 @@ const User = sequelize.define('User', {
   
   referrer_id: { type: DataTypes.STRING, allowNull: true },
   referrals_count: { type: DataTypes.INTEGER, defaultValue: 0 },
-  // 🔥 Нові поля для ручного контролю бонусів друзів 🔥
   ref_reward_lvl3_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   ref_reward_lvl5_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   
@@ -103,11 +102,56 @@ const SHOP_ITEMS_DB = {
 };
 
 // ==========================================
+// 🔥 ТЕЛЕГРАМ БОТ (Обробка /start) 🔥
+// ==========================================
+const token = process.env.BOT_TOKEN;
+
+if (token) {
+  const bot = new TelegramBot(token, { polling: true });
+  const webAppUrl = 'https://duck-clicker-production.up.railway.app'; // Твоє посилання
+
+  // Встановлюємо кнопку в меню чату (зліва від клавіатури)
+  bot.setChatMenuButton({
+    menu_button: {
+      type: "web_app",
+      text: "Грати 🦆",
+      web_app: { url: webAppUrl }
+    }
+  }).catch(err => console.error("Не вдалося встановити кнопку меню:", err));
+
+  // Обробка команди /start
+  bot.onText(/\/start(?:\s+(.*))?/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const startParam = match[1] || ''; // Ловимо реферальний код, якщо він є
+
+    // Формуємо фінальне посилання з рефералкою
+    const finalUrl = startParam ? `${webAppUrl}?start_param=${startParam}` : webAppUrl;
+
+    const text = `🦆 <b>Вітаємо у Gold Duck!</b>\n\nТисни на качку, збирай золоті монети, запрошуй друзів та змагайся з іншими гравцями!\n\nНатискай кнопку нижче, щоб почати гру 👇`;
+
+    const opts = {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🎮 Відкрити гру", web_app: { url: finalUrl } }],
+          [{ text: "🌐 Наш канал", url: "https://t.me/YOUR_CHANNEL_LINK" }] // Зміни на посилання свого каналу, якщо треба
+        ]
+      }
+    };
+
+    bot.sendMessage(chatId, text, opts);
+  });
+  
+  console.log('✅ Телеграм бот успішно запущений!');
+} else {
+  console.log('⚠️ УВАГА: BOT_TOKEN не знайдено. Бот не зможе відповідати на /start');
+}
+
+// ==========================================
 // ХЕЛПЕРИ
 // ==========================================
 
 const sendTelegramMessage = async (chatId, text) => {
-  const token = process.env.BOT_TOKEN;
   if (!token || !chatId) return;
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
   try { 
@@ -651,10 +695,7 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
-// ==========================================
-// 🔥 ЦЕЙ МАРШРУТ МАЄ БУТИ В САМОМУ КІНЦІ 🔥
-// Він гарантує, що якщо хтось оновить сторінку, гра не зламається
-// ==========================================
+// ЦЕЙ МАРШРУТ ЗАВЖДИ В САМОМУ КІНЦІ
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
     res.sendFile(path.join(__dirname, '../dist', 'index.html'));
