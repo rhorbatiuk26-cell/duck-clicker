@@ -1,22 +1,38 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Sequelize, DataTypes, Op } from 'sequelize';
-import https from 'https';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
+import path from 'path'; // Додай це
+import { fileURLToPath } from 'url'; // Додай це
+import { Sequelize, DataTypes } from 'sequelize';
+import TelegramBot from 'node-telegram-bot-api';
 
 dotenv.config();
 
+const app = express();
+
+// Налаштування для роботи з папкою dist
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-
 app.use(cors());
 app.use(express.json());
+
+// Вказуємо шлях до папки dist, яка лежить ПОРУЧ із backend
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// Маршрут для головної сторінки гри
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../dist', 'index.html'));
+});
+
+// ПОРТ (використовуємо той, що дає Railway)
+const PORT = process.env.PORT || 3000;
+
+// Твій старий код (Sequelize, Bot тощо) залишається нижче без змін...
+// ------------------------------------------
+
+// Далі йде твій старий код бота та інше...
+// app.listen(PORT, ...
 
 // ==========================================
 // БАЗА ДАНИХ (SEQUELIZE)
