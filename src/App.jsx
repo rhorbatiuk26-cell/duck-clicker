@@ -6,7 +6,6 @@ import axios from 'axios';
 // ==========================================
 
 const SERVER_URL = 'https://duck-clicker-production.up.railway.app/api';
-// 🔥 ЗМІНЕНО НА ТВОЄ ПОСИЛАННЯ
 const CHANNEL_URL = 'https://t.me/GoldDuckTap';
 
 const BOT_USERNAME = 'GoldDuckTap_bot';
@@ -75,8 +74,6 @@ const SKINS = [
   },
 ];
 
-// 🔥 ІДЕАЛЬНИЙ БАЛАНС БІЗНЕСІВ 🔥
-// Геометричне зростання ціни (cost) і правильне зростання прибутку (income)
 const SHOP_ITEMS = [
   { id: 1, name: "Кіоск", desc: "+100 монет / год", baseCost: 1000, income: 100, icon: "🍞" },
   { id: 2, name: "Кафе", desc: "+400 монет / год", baseCost: 5000, income: 400, icon: "🧢" },
@@ -953,7 +950,12 @@ function App() {
             <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 bg-gray-800 text-gray-400 rounded-full w-8 h-8 flex items-center justify-center font-bold">✕</button>
             <h2 className="text-2xl font-black text-white mb-6 text-center">⚙️ Налаштування</h2>
             <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex justify-between items-center mb-6"><span className="font-bold text-white">Вібрація (Haptic)</span><button onClick={toggleHaptic} className={`w-12 h-6 rounded-full relative transition-colors ${hapticEnabled ? 'bg-green-500' : 'bg-gray-600'}`}><div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${hapticEnabled ? 'left-6.5 right-0.5' : 'left-0.5'}`}></div></button></div>
-            <button onClick={resetProgress} className="bg-red-900/30 border border-red-500/50 text-red-500 font-bold py-3 rounded-xl w-full active:scale-95 transition-all">⚠️ Скинути прогрес</button>
+            
+            {/* 🔥 ТВОЯ СЕКРЕТНА КНОПКА 🔥 */}
+            {String(user?.id) === ADMIN_TELEGRAM_ID && (
+              <button onClick={resetProgress} className="bg-red-900/30 border border-red-500/50 text-red-500 font-bold py-3 rounded-xl w-full active:scale-95 transition-all">⚠️ Скинути прогрес (Адмін)</button>
+            )}
+
           </div>
         </div>
       )}
