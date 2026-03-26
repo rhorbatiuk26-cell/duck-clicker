@@ -9,7 +9,10 @@ const ADMIN_TELEGRAM_ID = '1057689349';
 
 const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
 const MAX_ENERGY = 2000;
-const levelNames = ["Бродяга", "Новачок", "Шукач", "Хуліган", "Бізнесмен", "Бос", "Магнат", "Олігарх", "Божество", "Творець"];
+const levelNames = [
+  "Бродяга", "Новачок", "Шукач", "Хуліган", "Бізнесмен", 
+  "Бос", "Магнат", "Олігарх", "Божество", "Творець"
+];
 
 const LEVEL_SKINS = [
   "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f986.svg", 
@@ -32,8 +35,18 @@ const getLeague = (lvl) => {
 };
 
 const SKINS = [
-  { id: 'cool', name: 'Качка-Кіборг', img: 'https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f916.svg', cost: 5000000 },
-  { id: 'rich', name: 'Золота Качка', img: 'https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f911.svg', cost: 10000000 },
+  { 
+    id: 'cool', 
+    name: 'Качка-Кіборг', 
+    img: 'https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f916.svg', 
+    cost: 5000000 
+  },
+  { 
+    id: 'rich', 
+    name: 'Золота Качка', 
+    img: 'https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f911.svg', 
+    cost: 10000000 
+  },
 ];
 
 const SHOP_ITEMS = [
@@ -75,8 +88,9 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [hapticEnabled, setHapticEnabled] = useState(() => localStorage.getItem('haptic_enabled') !== 'false');
   
-  // Стейт для анімації сальто (коли новий рівень)
+  // 🔥 Стейт для Анімацій 🔥
   const [isFlipping, setIsFlipping] = useState(false);
+  const [isWobbling, setIsWobbling] = useState(false);
 
   const tg = window.Telegram.WebApp;
   const user = tg.initDataUnsafe?.user;
@@ -137,7 +151,7 @@ function App() {
     triggerNotification('success');
     
     setIsFlipping(true);
-    setTimeout(() => setIsFlipping(false), 1000); // Анімація сальто триває 1 секунду
+    setTimeout(() => setIsFlipping(false), 1000);
   };
 
   useEffect(() => {
@@ -145,21 +159,18 @@ function App() {
     if (userData?.auto_click) {
       totalIncomePerSec += (7 * level);
     }
-    
     if (totalIncomePerSec <= 0) return;
     
     const interval = setInterval(() => {
       setTotalEarned(prev => {
         const newTotal = prev + totalIncomePerSec;
         let calcLevel = 1; 
-        
         for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { 
           if (newTotal >= LEVEL_THRESHOLDS[i]) { 
             calcLevel = i + 1; 
             break; 
           } 
         }
-        
         if (calcLevel > 10) calcLevel = 10;
         
         setLevel(currentLevel => {
@@ -169,7 +180,6 @@ function App() {
           }
           return currentLevel;
         });
-        
         return newTotal;
       });
       
@@ -186,7 +196,6 @@ function App() {
         setClicks(prev => [...prev.slice(-15), ...newClicks]);
       }
     }, 1000);
-    
     return () => clearInterval(interval);
   }, [passiveIncome, userData?.auto_click, level, activeTab]);
 
@@ -197,12 +206,21 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // 🔥 Виправлений клік для ПК (мишка) та Телефонів (тач) 🔥
   const handleTouch = async (e) => {
     if (!userData || showLeaderboard || showDailyModal || showLevelUp || showSquadModal || showOnboarding || showSettings) return;
     
-    const touches = e.changedTouches; 
-    let actualTouches = 0;
+    // Нормалізація подій (беремо координати або з пальця, або з мишки)
+    let touches = [];
+    if (e.type === 'touchstart') {
+      touches = Array.from(e.changedTouches);
+    } else if (e.type === 'mousedown') {
+      touches = [e];
+    }
     
+    if (touches.length === 0) return;
+
+    let actualTouches = 0;
     for (let i = 0; i < touches.length; i++) { 
       if (energy - actualTouches > 0) {
         actualTouches++; 
@@ -213,20 +231,22 @@ function App() {
     
     triggerHaptic('medium');
     
+    // 🔥 Запуск анімації желе (стрибок качки) 🔥
+    setIsWobbling(true);
+    setTimeout(() => setIsWobbling(false), 150);
+    
     const tapValue = userData.active_boost ? level * userData.boost_multiplier : level;
     const totalPointsToAdd = tapValue * actualTouches;
     
     setTotalEarned(prev => {
       const newTotal = prev + totalPointsToAdd;
       let calcLevel = 1; 
-      
       for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { 
         if (newTotal >= LEVEL_THRESHOLDS[i]) { 
           calcLevel = i + 1; 
           break; 
         } 
       }
-      
       if (calcLevel > 10) calcLevel = 10;
       
       setLevel(currentLevel => { 
@@ -236,19 +256,22 @@ function App() {
         } 
         return currentLevel; 
       });
-      
       return newTotal;
     });
     
     setPoints(prev => prev + totalPointsToAdd); 
     setEnergy(prev => prev - actualTouches);
     
-    const newClicks = Array.from(touches).slice(0, actualTouches).map(touch => {
+    const newClicks = touches.slice(0, actualTouches).map(touch => {
       const rect = e.currentTarget.getBoundingClientRect(); 
+      // Для мишки ClientX, для тачу touch.clientX
+      const clientX = touch.clientX || e.clientX;
+      const clientY = touch.clientY || e.clientY;
+
       return { 
         id: Date.now() + Math.random(), 
-        x: touch.clientX - rect.left, 
-        y: touch.clientY - rect.top, 
+        x: clientX - rect.left, 
+        y: clientY - rect.top, 
         val: tapValue 
       };
     });
@@ -281,7 +304,6 @@ function App() {
             setUserData(res.data.user); 
             setPoints(Number(res.data.user.season_points)); 
             setTotalEarned(Number(res.data.user.total_earned));
-            
             if (boostType === 'energy') {
               setEnergy(MAX_ENERGY);
             }
@@ -291,7 +313,6 @@ function App() {
           }
         })
         .catch(async () => {
-          // План Б: Відео не завантажилося або гравець закрив
           triggerNotification('warning');
           try {
             const res = await axios.post(`${SERVER_URL}/user/ad_boost`, { 
@@ -310,12 +331,10 @@ function App() {
                 break; 
               } 
             }
-            
             if (calcLvl > level) { 
               triggerLevelUp(calcLvl); 
               setLevel(calcLvl); 
             }
-            
             tg.showAlert("Реклами поки немає, але ти отримуєш бонус +1500 монет 💰");
           } catch (err) { 
             tg.showAlert(err.response?.data?.error || "Помилка (Можливо таймер ще не пройшов)"); 
@@ -331,7 +350,6 @@ function App() {
       triggerNotification('error'); 
       return; 
     }
-    
     triggerNotification('success');
     
     try {
@@ -427,7 +445,6 @@ function App() {
   const claimSocialTask = async (type, link) => {
     if (userData[`task_${type}_claimed`]) return; 
     tg.openLink(link);
-    
     setTimeout(async () => {
       try { 
         const response = await axios.post(`${SERVER_URL}/user/claim_task`, { 
@@ -448,7 +465,6 @@ function App() {
   const claimTelegramTask = async () => {
     if (userData.task_tg_claimed) return; 
     tg.openTelegramLink(CHANNEL_URL);
-    
     setTimeout(async () => {
       try { 
         const response = await axios.post(`${SERVER_URL}/user/claim_task`, { 
@@ -472,7 +488,9 @@ function App() {
     tg.showConfirm("УВАГА! Почати з нуля?", async (agreed) => { 
       if (agreed) { 
         try { 
-          const res = await axios.post(`${SERVER_URL}/user/reset`, { telegram_id: userData.telegram_id }); 
+          const res = await axios.post(`${SERVER_URL}/user/reset`, { 
+            telegram_id: userData.telegram_id 
+          }); 
           setUserData(res.data.user); 
           setPoints(0); 
           setTotalEarned(0); 
@@ -494,7 +512,9 @@ function App() {
     tg.showConfirm("АДМІН! Завершити сезон прямо зараз?", async (agreed) => { 
       if (agreed) { 
         try { 
-          await axios.post(`${SERVER_URL}/admin/end_season`, { telegram_id: userData.telegram_id }); 
+          await axios.post(`${SERVER_URL}/admin/end_season`, { 
+            telegram_id: userData.telegram_id 
+          }); 
           tg.showAlert("✅ СЕЗОН ЗАВЕРШЕНО! Перевір бот."); 
           window.location.reload(); 
         } catch (err) { 
@@ -516,7 +536,9 @@ function App() {
   
   const claimDaily = async () => { 
     try { 
-      const response = await axios.post(`${SERVER_URL}/user/daily`, { telegram_id: userData.telegram_id }); 
+      const response = await axios.post(`${SERVER_URL}/user/daily`, { 
+        telegram_id: userData.telegram_id 
+      }); 
       setPoints(Number(response.data.user.season_points)); 
       setTotalEarned(Number(response.data.user.total_earned)); 
       setUserData(response.data.user); 
@@ -544,6 +566,8 @@ function App() {
   const isCooldown = (readyAt) => readyAt && new Date(readyAt).getTime() > Date.now();
   const getRemainingMin = (readyAt) => Math.ceil((new Date(readyAt).getTime() - Date.now()) / 60000);
 
+  // --- РЕНДЕР ---
+  
   if (!user || !userData) {
     return (
       <div className="h-screen bg-gray-950 flex flex-col items-center justify-center font-bold text-yellow-400">
@@ -552,7 +576,6 @@ function App() {
     );
   }
 
-  // Дизайн карток ознайомлення
   if (showOnboarding) {
     return (
       <div className="h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center select-none text-white z-[100] relative">
@@ -567,7 +590,6 @@ function App() {
               </p>
             </> 
           )}
-          
           {onboardingStep === 1 && ( 
             <>
               <div className="text-7xl">💸</div>
@@ -577,7 +599,6 @@ function App() {
               </p>
             </> 
           )}
-          
           {onboardingStep === 2 && ( 
             <>
               <div className="text-7xl">🛒</div>
@@ -587,7 +608,6 @@ function App() {
               </p>
             </> 
           )}
-          
           {onboardingStep === 3 && ( 
             <>
               <div className="text-7xl">🛡️</div>
@@ -599,7 +619,6 @@ function App() {
           )}
 
         </div>
-        
         <button 
           onClick={() => { 
             triggerHaptic('light'); 
@@ -614,7 +633,6 @@ function App() {
     );
   }
 
-  // Динамічний скін
   const currentSkinImg = userData?.current_skin === 'default' 
     ? LEVEL_SKINS[Math.min(level - 1, 9)] 
     : SKINS.find(s => s.id === userData?.current_skin)?.img || LEVEL_SKINS[Math.min(level - 1, 9)];
@@ -649,10 +667,14 @@ function App() {
         <div className="flex justify-between items-center mb-4">
           <div className="text-left flex flex-col items-start">
             <h1 className="text-sm font-bold text-gray-300">Привіт, {userData.first_name}!</h1>
-            <span className={`text-[10px] font-black uppercase tracking-widest ${league.color}`}>{league.name}</span>
+            <span className={`text-[10px] font-black uppercase tracking-widest ${league.color}`}>
+              {league.name}
+            </span>
             {userData.squad_id ? (
               <div className="flex items-center gap-1 mt-1">
-                <span className="text-xs bg-gray-800 px-2 py-0.5 rounded-md border border-gray-600">🛡️ {userData.squad_id}</span>
+                <span className="text-xs bg-gray-800 px-2 py-0.5 rounded-md border border-gray-600">
+                  🛡️ {userData.squad_id}
+                </span>
               </div>
             ) : (
               <button 
@@ -692,7 +714,6 @@ function App() {
           </div>
         )}
         
-        {/* Картка балансу */}
         <div className="bg-gray-800/80 backdrop-blur-sm rounded-3xl p-5 shadow-2xl border border-gray-700/50 flex flex-col items-center justify-center">
           <div className="flex justify-center items-center gap-2 text-gray-400 text-[10px] uppercase tracking-widest font-bold mb-1">
             <span>Баланс</span>
@@ -707,16 +728,25 @@ function App() {
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden relative pb-[85px]">
+        
         {activeTab === 'tap' && (
           <div className="flex-1 flex flex-col px-4 animate-fade-in">
-            <div className="relative flex-1 flex items-center justify-center w-full touch-none" onTouchStart={handleTouch} ref={duckRef}>
+            <div 
+              className="relative flex-1 flex items-center justify-center w-full touch-none select-none" 
+              onTouchStart={handleTouch} 
+              onMouseDown={handleTouch}
+              ref={duckRef}
+            >
               <div className="absolute bg-yellow-500/10 w-64 h-64 rounded-full blur-[50px] pointer-events-none"></div>
               
-              {/* Анімація Качки (Желе + Сальто) */}
               <img 
                 src={currentSkinImg} 
                 alt="Duck" 
-                className={`w-64 h-64 object-contain drop-shadow-[0_15px_25px_rgba(0,0,0,0.6)] pointer-events-none transition-transform duration-75 animate-wobble-click ${isFlipping ? 'animate-flip-360' : ''}`}
+                className={`w-64 h-64 object-contain drop-shadow-[0_15px_25px_rgba(0,0,0,0.6)] pointer-events-none transition-transform duration-75 
+                  ${isWobbling ? 'scale-90 -rotate-12' : 'scale-100 rotate-0'} 
+                  ${isFlipping ? 'animate-flip-360' : ''} 
+                  ${userData.auto_click ? 'animate-pulse' : ''}`
+                }
               />
               
               {clicks.map((c) => (
@@ -990,7 +1020,6 @@ function App() {
         )}
       </div>
 
-      {/* Нижня панель навігації */}
       <div className="absolute bottom-0 left-0 right-0 h-[80px] bg-gray-900/95 backdrop-blur-lg border-t border-gray-800 grid grid-cols-4 px-1 pb-safe z-40">
         <button 
           onClick={() => { triggerSelection(); setActiveTab('tap'); }} 
@@ -1025,7 +1054,6 @@ function App() {
         </button>
       </div>
 
-      {/* Модальне вікно "Новий рівень" */}
       {showLevelUp && justReachedLevel && ( 
         <div className="absolute inset-0 z-[70] bg-gray-950/90 flex flex-col items-center justify-center p-6 animate-fade-in backdrop-blur-lg text-center">
           <div className="text-8xl mb-4 animate-bounce">🎉</div>
@@ -1054,14 +1082,6 @@ function App() {
           to { opacity: 1; transform: translateY(0); } 
         } 
         
-        /* Желе-обертання при тапанні */
-        @keyframes wobble-spin {
-          0% { transform: scale(1) rotate(0deg); }
-          25% { transform: scale(0.85) rotate(-15deg); }
-          50% { transform: scale(1.1) rotate(15deg); }
-          100% { transform: scale(1) rotate(0deg); }
-        }
-        
         /* Сальто при новому рівні */
         @keyframes flip-360 {
           0% { transform: rotateY(0deg) scale(1); }
@@ -1069,10 +1089,6 @@ function App() {
           100% { transform: rotateY(360deg) scale(1); }
         }
 
-        .animate-wobble-click:active { 
-          animation: wobble-spin 0.3s ease-in-out !important; 
-        }
-        
         .animate-flip-360 { 
           animation: flip-360 1s ease-in-out !important; 
         }
