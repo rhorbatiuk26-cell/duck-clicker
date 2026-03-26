@@ -6,10 +6,8 @@ import axios from 'axios';
 // ==========================================
 
 const SERVER_URL = 'https://duck-clicker-production.up.railway.app/api';
-const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ';
-
+const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ'; // Заміни на лінк свого каналу
 const BOT_USERNAME = 'GoldDuckTap_bot';
-const ADMIN_TELEGRAM_ID = '1057689349';
 
 const LEVEL_THRESHOLDS = [
   0, 50000, 500000, 2500000, 10000000, 
@@ -54,315 +52,117 @@ const SHOP_ITEMS = [
 // ==========================================
 const translations = {
   en: {
-    hello: "Hello",
-    balance: "Balance",
-    per_hour: "/hour",
-    join_squad: "Join Squad",
-    top: "Top",
-    energy: "Energy",
-    level: "Level",
-    max_level: "MAX LEVEL",
-    tab_play: "Play",
-    tab_shop: "Shop",
-    tab_tasks: "Tasks",
-    tab_friends: "Friends",
-    tab_info: "Info",
-    
-    shop_business: "Business",
-    shop_skins: "Skins",
-    pcs: "pcs",
-    friends_req: "friends req.",
-    equipped: "Equipped",
-    equip: "Equip",
-    evolution: "Evolution",
-    skin_cool: "Cyborg Duck",
-    skin_rich: "Golden Duck",
-
-    item1_name: "Breadcrumbs",
-    item2_name: "Old Cap",
-    item3_name: "Tramp's Guitar",
-    item4_name: "Shawarma Kiosk",
-    item5_name: "Crypto Farm",
-    item6_name: "Bank Network",
-    item7_name: "Duck AI",
-    item8_name: "Mars Mission",
-    item9_name: "Crypto Exchange",
-    item10_name: "TV Channel",
-
-    daily_bonus: "🎁 Claim Daily Bonus!",
-    boosts: "🔄 Video Boosts",
-    boost_energy: "Energy",
-    boost_x5: "x5 Boost",
-    boost_auto: "Auto-clicker",
-    boost_magnet: "+5,000 Coins",
-    tomorrow: "Tomorrow",
-    watch: "Watch",
-    min: "min",
-    socials: "🌐 Socials",
-    sub_tg: "📣 Telegram Sub",
-    sub_x: "✖️ X (Twitter) Sub",
-    done: "Done",
-    go: "Go",
-    achievements: "🏆 Achievements",
-    claim: "Claim",
-    claimed: "Claimed",
-    reward: "Reward",
-    ach_10k: "Collect 10,000 coins",
-    ach_lvl3: "Reach Level 3",
-    ach_ref3: "Invite 3 friends",
-    ach_ref10: "Invite 10 friends",
-
-    friends_title: "👥 Your Friends",
-    friends_desc_1: "Invite friends and get ",
-    friends_desc_2: " immediately.",
-    friends_desc_3: "Help your friend level up:",
-    friends_desc_4: "Reaches Level 3 👉 ",
-    friends_desc_5: "Reaches Level 5 👉 ",
-    invite_btn: "🚀 Invite a Friend",
-    copy_link: "Copy your link",
-    friends_list: "Referrals list",
-    no_friends: "You haven't invited anyone yet 😢\nSend a link to a friend to get a bonus!",
-    req_lvl: "Req. Lvl",
-
-    info_title: "ℹ️ Info & Rules",
-    info_goal_title: "🦆 Game Goal:",
-    info_goal_desc: "Tap, earn coins, buy businesses, and climb the leagues. Higher level = more earnings!",
-    info_donate_title: "💸 No Donations:",
-    info_donate_desc: "Your main resource is your time! We don't sell anything for real money.",
-    info_fair_title: "🏆 Fair Ranking:",
-    info_fair_desc: "On the 1st of every month, we record the top players and reset coins (but skins and friends stay forever).",
-    info_pool_title: "💰 Prize Pool (20% of revenue):",
-    info_pool_desc: "We give exactly 20% of all ad revenue every month!\n• 10% — shared among TOP-11 players.\n• 10% — goes to the TOP-1 Squad (50% to creator, 50% to top 5 players).",
-
-    onb_1_title: "Welcome to Gold Duck!",
-    onb_1_desc: "Not just a clicker. A fair game where we give 20% of revenue to top players and squads monthly.",
-    onb_2_title: "No Donations!",
-    onb_2_desc: "Your time is the currency! You pay nothing but have a chance to win real prizes.",
-    onb_3_title: "Passive Income",
-    onb_3_desc: "Spend coins on businesses. The duck works while you are offline (up to 3 hours).",
-    onb_4_title: "Squads (Teams)",
-    onb_4_desc: "Team up with friends! If your squad wins, all top members share a huge bonus.",
-    onb_next: "Next ➔",
-    onb_start: "Start Playing! 🚀",
-
+    hello: "Hello", balance: "Balance", per_hour: "/hour", join_squad: "Join Squad", top: "Top",
+    energy: "Energy", level: "Level", max_level: "MAX LEVEL", tab_play: "Play", tab_shop: "Shop",
+    tab_tasks: "Tasks", tab_friends: "Friends", tab_info: "Info", shop_business: "Business",
+    shop_skins: "Skins", pcs: "pcs", friends_req: "friends req.", equipped: "Equipped",
+    equip: "Equip", evolution: "Evolution", skin_cool: "Cyborg Duck", skin_rich: "Golden Duck",
+    item1_name: "Breadcrumbs", item2_name: "Old Cap", item3_name: "Tramp's Guitar",
+    item4_name: "Shawarma Kiosk", item5_name: "Crypto Farm", item6_name: "Bank Network",
+    item7_name: "Duck AI", item8_name: "Mars Mission", item9_name: "Crypto Exchange",
+    item10_name: "TV Channel", daily_bonus: "🎁 Claim Daily Bonus!", boosts: "🔄 Video Boosts",
+    boost_energy: "Energy", boost_x5: "x5 Boost", boost_auto: "Auto-clicker", boost_magnet: "+5,000 Coins",
+    tomorrow: "Tomorrow", watch: "Watch", min: "min", socials: "🌐 Socials", sub_tg: "📣 Telegram Sub",
+    sub_x: "✖️ X (Twitter) Sub", done: "Done", go: "Go", achievements: "🏆 Achievements",
+    claim: "Claim", claimed: "Claimed", reward: "Reward", ach_10k: "Collect 10,000 coins",
+    ach_lvl3: "Reach Level 3", ach_ref3: "Invite 3 friends", ach_ref10: "Invite 10 friends",
+    friends_title: "👥 Your Friends", friends_desc_1: "Invite friends and get ", friends_desc_2: " immediately.",
+    friends_desc_3: "Help your friend level up:", friends_desc_4: "Reaches Level 3 👉 ",
+    friends_desc_5: "Reaches Level 5 👉 ", invite_btn: "🚀 Invite a Friend", copy_link: "Copy link",
+    friends_list: "Referrals list", no_friends: "No friends yet 😢\nSend a link to get a bonus!", req_lvl: "Req. Lvl",
+    info_title: "ℹ️ Info & Rules", info_goal_title: "Game Goal:", info_goal_desc: "Tap, earn coins, buy businesses. Higher level = more earnings!",
+    info_donate_title: "No Donations:", info_donate_desc: "Your main resource is time! We don't sell anything for real money.",
+    info_fair_title: "Fair Ranking:", info_fair_desc: "Every 1st of the month, coins reset (but skins and friends stay forever).",
+    info_pool_title: "Prize Pool (20% of revenue):", info_pool_desc: "We give 20% of ad revenue monthly!\n• 10% — shared among TOP-11 players.\n• 10% — goes to the TOP-1 Squad.",
+    onb_1_title: "Welcome to Gold Duck!", onb_1_desc: "A fair game where we share 20% of revenue with players and squads monthly.",
+    onb_2_title: "No Donations!", onb_2_desc: "Your time is the currency! You pay nothing but can win real prizes.",
+    onb_3_title: "Passive Income", onb_3_desc: "Businesses work while you are offline (up to 3 hours).",
+    onb_4_title: "Squads (Teams)", onb_4_desc: "Team up! If your squad wins, you share a huge bonus.",
+    onb_next: "Next ➔", onb_start: "Start Playing! 🚀",
     lvl_names: ["Tramp", "Rookie", "Seeker", "Hooligan", "Businessman", "Boss", "Tycoon", "Oligarch", "Deity", "Creator"],
-    league_1: "Bronze League 🥉",
-    league_2: "Silver League 🥈",
-    league_3: "Gold League 🏆",
-    league_4: "Diamond League 💎"
+    league_1: "Bronze League 🥉", league_2: "Silver League 🥈", league_3: "Gold League 🏆", league_4: "Diamond League 💎",
+    offline_msg: "You slept, business worked!"
   },
   uk: {
-    hello: "Привіт",
-    balance: "Баланс",
-    per_hour: "/год",
-    join_squad: "Вступити в Сквад",
-    top: "Топ",
-    energy: "Енергія",
-    level: "Рівень",
-    max_level: "МАКС РІВЕНЬ",
-    tab_play: "Грай",
-    tab_shop: "Магазин",
-    tab_tasks: "Завдання",
-    tab_friends: "Друзі",
-    tab_info: "Інфо",
-    
-    shop_business: "Бізнес",
-    shop_skins: "Скіни",
-    pcs: "шт",
-    friends_req: "друзів",
-    equipped: "Одягнено",
-    equip: "Одягнути",
-    evolution: "Еволюція",
-    skin_cool: "Качка-Кіборг",
-    skin_rich: "Золота Качка",
-
-    item1_name: "Крихти Хліба",
-    item2_name: "Стара Кепка",
-    item3_name: "Гітара Бродяги",
-    item4_name: "Кіоск з Шаурмою",
-    item5_name: "Крипто-Ферма",
-    item6_name: "Мережа Банків",
-    item7_name: "Качиний ШІ",
-    item8_name: "Місія на Марс",
-    item9_name: "Крипто-Біржа",
-    item10_name: "Телеканал",
-
-    daily_bonus: "🎁 Забрати Щоденний Бонус!",
-    boosts: "🔄 Бусти (За відео)",
-    boost_energy: "Енергія",
-    boost_x5: "Буст x5",
-    boost_auto: "Автоклікер",
-    boost_magnet: "+5,000 Монет",
-    tomorrow: "Завтра",
-    watch: "Дивитись",
-    min: "хв",
-    socials: "🌐 Соцмережі",
-    sub_tg: "📣 Підписка Telegram",
-    sub_x: "✖️ Підписка на X",
-    done: "Виконано",
-    go: "Перейти",
-    achievements: "🏆 Досягнення",
-    claim: "Забрати",
-    claimed: "Забрано",
-    reward: "Нагорода",
-    ach_10k: "Назбирай 10,000 монет",
-    ach_lvl3: "Досягни 3 рівня",
-    ach_ref3: "Запроси 3 друзів",
-    ach_ref10: "Запроси 10 друзів",
-
-    friends_title: "👥 Ваші Друзі",
-    friends_desc_1: "Запрошуй друзів і отримуй ",
-    friends_desc_2: " одразу.",
-    friends_desc_3: "Допоможи другу прокачатися:",
-    friends_desc_4: "Досягне 3-го рівня 👉 ",
-    friends_desc_5: "Досягне 5-го рівня 👉 ",
-    invite_btn: "🚀 Запросити друга",
-    copy_link: "Скопіювати своє посилання",
-    friends_list: "Список рефералів",
-    no_friends: "Ви ще нікого не запросили 😢\nВідправте посилання другу, щоб отримати бонус!",
-    req_lvl: "Потрібен Рівень",
-
-    info_title: "ℹ️ Інфо та Правила",
-    info_goal_title: "🦆 Мета гри:",
-    info_goal_desc: "Клікай, заробляй монети, купуй бізнеси та піднімайся в лігах. Чим вищий рівень — тим більший заробіток!",
-    info_donate_title: "💸 Жодних Донатів:",
-    info_donate_desc: "Найголовніший донат — це ваш час! Ми не продаємо нічого за реальні гроші.",
-    info_fair_title: "🏆 Чесний рейтинг:",
-    info_fair_desc: "Кожного 1-го числа ми фіксуємо найкращих гравців та обнуляємо монети (але скіни та друзі залишаються назавжди).",
-    info_pool_title: "💰 Призовий фонд (20% від доходу):",
-    info_pool_desc: "Ми віддаємо рівно 20% від доходу з реклами щомісяця!\n• 10% — ділять між собою ТОП-11 гравців.\n• 10% — забирає ТОП-1 Сквад (50% творцю, 50% активним учасникам).",
-
-    onb_1_title: "Привіт в Gold Duck!",
-    onb_1_desc: "Це чесна гра, де ми віддаємо 20% доходу гравцям та сквадам наприкінці сезону.",
-    onb_2_title: "Жодних Донатів!",
-    onb_2_desc: "Найголовніший донат — це твій час! Ти не платиш нічого, але маєш шанс виграти призи.",
-    onb_3_title: "Пасивний дохід",
-    onb_3_desc: "Зароблені монети витрачай на бізнеси. Качка буде працювати навіть коли ти офлайн (до 3 годин).",
-    onb_4_title: "Сквади (Команди)",
-    onb_4_desc: "Об'єднуйся в команди з друзями! Якщо ваш сквад переможе, всі отримають великий бонус.",
-    onb_next: "Далі ➔",
-    onb_start: "Почати Гру! 🚀",
-
+    hello: "Привіт", balance: "Баланс", per_hour: "/год", join_squad: "Вступити в Сквад", top: "Топ",
+    energy: "Енергія", level: "Рівень", max_level: "МАКС РІВЕНЬ", tab_play: "Грай", tab_shop: "Магазин",
+    tab_tasks: "Завдання", tab_friends: "Друзі", tab_info: "Інфо", shop_business: "Бізнес",
+    shop_skins: "Скіни", pcs: "шт", friends_req: "друзів", equipped: "Одягнено",
+    equip: "Одягнути", evolution: "Еволюція", skin_cool: "Качка-Кіборг", skin_rich: "Золота Качка",
+    item1_name: "Крихти Хліба", item2_name: "Стара Кепка", item3_name: "Гітара Бродяги",
+    item4_name: "Кіоск з Шаурмою", item5_name: "Крипто-Ферма", item6_name: "Мережа Банків",
+    item7_name: "Качиний ШІ", item8_name: "Місія на Марс", item9_name: "Крипто-Біржа",
+    item10_name: "Телеканал", daily_bonus: "🎁 Забрати Щоденний Бонус!", boosts: "🔄 Бусти (За відео)",
+    boost_energy: "Енергія", boost_x5: "Буст x5", boost_auto: "Автоклікер", boost_magnet: "+5,000 Монет",
+    tomorrow: "Завтра", watch: "Дивитись", min: "хв", socials: "🌐 Соцмережі", sub_tg: "📣 Підписка Telegram",
+    sub_x: "✖️ Підписка на X", done: "Виконано", go: "Перейти", achievements: "🏆 Досягнення",
+    claim: "Забрати", claimed: "Забрано", reward: "Нагорода", ach_10k: "Назбирай 10,000 монет",
+    ach_lvl3: "Досягни 3 рівня", ach_ref3: "Запроси 3 друзів", ach_ref10: "Запроси 10 друзів",
+    friends_title: "👥 Ваші Друзі", friends_desc_1: "Запрошуй друзів і отримуй ", friends_desc_2: " одразу.",
+    friends_desc_3: "Допоможи другу прокачатися:", friends_desc_4: "Досягне 3-го рівня 👉 ",
+    friends_desc_5: "Досягне 5-го рівня 👉 ", invite_btn: "🚀 Запросити друга", copy_link: "Скопіювати посилання",
+    friends_list: "Список рефералів", no_friends: "Ви ще нікого не запросили 😢\nВідправте посилання другу, щоб отримати бонус!", req_lvl: "Потрібен Рів.",
+    info_title: "ℹ️ Інфо та Правила", info_goal_title: "Мета гри:", info_goal_desc: "Клікай, заробляй монети, купуй бізнеси та піднімайся в лігах. Чим вищий рівень — тим більший заробіток!",
+    info_donate_title: "Жодних Донатів:", info_donate_desc: "Найголовніший донат — це ваш час! Ми не продаємо нічого за реальні гроші.",
+    info_fair_title: "Чесний рейтинг:", info_fair_desc: "Кожного 1-го числа ми фіксуємо найкращих гравців та обнуляємо монети (але скіни та друзі залишаються назавжди).",
+    info_pool_title: "Призовий фонд (20% від доходу):", info_pool_desc: "Ми віддаємо рівно 20% від доходу з реклами щомісяця!\n• 10% — ділять між собою ТОП-11 гравців.\n• 10% — забирає ТОП-1 Сквад.",
+    onb_1_title: "Привіт в Gold Duck!", onb_1_desc: "Це чесна гра, де ми віддаємо 20% доходу гравцям та сквадам наприкінці сезону.",
+    onb_2_title: "Жодних Донатів!", onb_2_desc: "Найголовніший донат — це твій час! Ти не платиш нічого, але маєш шанс виграти призи.",
+    onb_3_title: "Пасивний дохід", onb_3_desc: "Бізнеси приносять гроші, навіть коли ти офлайн (до 3 годин).",
+    onb_4_title: "Сквади (Команди)", onb_4_desc: "Об'єднуйся з друзями! Якщо ваш сквад переможе, всі отримають великий бонус.",
+    onb_next: "Далі ➔", onb_start: "Почати Гру! 🚀",
     lvl_names: ["Бродяга", "Новачок", "Шукач", "Хуліган", "Бізнесмен", "Бос", "Магнат", "Олігарх", "Божество", "Творець"],
-    league_1: "Бронзова Ліга 🥉",
-    league_2: "Срібна Ліга 🥈",
-    league_3: "Золота Ліга 🏆",
-    league_4: "Діамантова Ліга 💎"
+    league_1: "Бронзова Ліга 🥉", league_2: "Срібна Ліга 🥈", league_3: "Золота Ліга 🏆", league_4: "Діамантова Ліга 💎",
+    offline_msg: "Ти спав, а бізнес працював!"
   },
   ru: {
-    hello: "Привет",
-    balance: "Баланс",
-    per_hour: "/час",
-    join_squad: "Вступить в Сквад",
-    top: "Топ",
-    energy: "Энергия",
-    level: "Уровень",
-    max_level: "МАКС УРОВЕНЬ",
-    tab_play: "Играть",
-    tab_shop: "Магазин",
-    tab_tasks: "Задания",
-    tab_friends: "Друзья",
-    tab_info: "Инфо",
-    
-    shop_business: "Бизнес",
-    shop_skins: "Скины",
-    pcs: "шт",
-    friends_req: "друзей",
-    equipped: "Надето",
-    equip: "Надеть",
-    evolution: "Эволюция",
-    skin_cool: "Утка-Киборг",
-    skin_rich: "Золотая Утка",
-
-    item1_name: "Крошки Хлеба",
-    item2_name: "Старая Кепка",
-    item3_name: "Гитара Бродяги",
-    item4_name: "Киоск с Шаурмой",
-    item5_name: "Крипто-Ферма",
-    item6_name: "Сеть Банков",
-    item7_name: "Утиный ИИ",
-    item8_name: "Миссия на Марс",
-    item9_name: "Крипто-Биржа",
-    item10_name: "Телеканал",
-
-    daily_bonus: "🎁 Забрать Ежедневный Бонус!",
-    boosts: "🔄 Бусты (За видео)",
-    boost_energy: "Энергия",
-    boost_x5: "Буст x5",
-    boost_auto: "Автокликер",
-    boost_magnet: "+5,000 Монет",
-    tomorrow: "Завтра",
-    watch: "Смотреть",
-    min: "мин",
-    socials: "🌐 Соцсети",
-    sub_tg: "📣 Подписка Telegram",
-    sub_x: "✖️ Подписка на X",
-    done: "Выполнено",
-    go: "Перейти",
-    achievements: "🏆 Достижения",
-    claim: "Забрать",
-    claimed: "Забрано",
-    reward: "Награда",
-    ach_10k: "Накопи 10,000 монет",
-    ach_lvl3: "Достигни 3 уровня",
-    ach_ref3: "Пригласи 3 друзей",
-    ach_ref10: "Пригласи 10 друзей",
-
-    friends_title: "👥 Ваши Друзья",
-    friends_desc_1: "Приглашай друзей и получай ",
-    friends_desc_2: " сразу.",
-    friends_desc_3: "Помоги другу прокачаться:",
-    friends_desc_4: "Достигнет 3-го уровня 👉 ",
-    friends_desc_5: "Достигнет 5-го уровня 👉 ",
-    invite_btn: "🚀 Пригласить друга",
-    copy_link: "Скопировать свою ссылку",
-    friends_list: "Список рефералов",
-    no_friends: "Вы еще никого не пригласили 😢\nОтправьте ссылку другу, чтобы получить бонус!",
-    req_lvl: "Нужен Ур.",
-
-    info_title: "ℹ️ Инфо и Правила",
-    info_goal_title: "🦆 Цель игры:",
-    info_goal_desc: "Кликай, зарабатывай монеты, покупай бизнесы. Чем выше уровень — тем больше заработок!",
-    info_donate_title: "💸 Никаких Донатов:",
-    info_donate_desc: "Главный донат — это ваше время! Мы ничего не продаем за реальные деньги.",
-    info_fair_title: "🏆 Честный рейтинг:",
-    info_fair_desc: "Каждого 1-го числа мы фиксируем лучших игроков и обнуляем монеты (но скины и друзья остаются).",
-    info_pool_title: "💰 Призовой фонд (20% от дохода):",
-    info_pool_desc: "Мы отдаем ровно 20% от дохода с рекламы каждый месяц!\n• 10% — делят ТОП-11 игроков.\n• 10% — забирает ТОП-1 Сквад (50% создателю, 50% активным участникам).",
-
-    onb_1_title: "Привет в Gold Duck!",
-    onb_1_desc: "Это честная игра, где мы отдаем 20% дохода игрокам и сквадам в конце сезона.",
-    onb_2_title: "Никаких Донатов!",
-    onb_2_desc: "Твое время — главная валюта! Ты не платишь ничего, но можешь выиграть реальные призы.",
-    onb_3_title: "Пассивный доход",
-    onb_3_desc: "Покупай бизнесы. Утка работает, даже когда ты оффлайн (до 3 часов).",
-    onb_4_title: "Сквады (Команды)",
-    onb_4_desc: "Объединяйся в команды с друзьями! Если ваш сквад победит, все получат большой бонус.",
-    onb_next: "Далее ➔",
-    onb_start: "Начать Игру! 🚀",
-
-    lvl_names: ["Бродяга", "Новичок", "Искатель", "Хулиган", "Бизнесмен", "Босс", "Магнат", "Олигарх", "Божество", "Творец"],
-    league_1: "Бронзовая Лига 🥉",
-    league_2: "Серебряная Лига 🥈",
-    league_3: "Золотая Лига 🏆",
-    league_4: "Бриллиантовая Лига 💎"
+    hello: "Привет", balance: "Баланс", per_hour: "/час", join_squad: "Вступить в Сквад", top: "Топ",
+    energy: "Энергия", level: "Уровень", max_level: "МАКС УРОВЕНЬ", tab_play: "Играть", tab_shop: "Магазин",
+    tab_tasks: "Задания", tab_friends: "Друзья", tab_info: "Инфо", shop_business: "Бизнес",
+    shop_skins: "Скины", pcs: "шт", friends_req: "друзей", equipped: "Надето",
+    equip: "Надеть", evolution: "Эволюция", skin_cool: "Утка-Киборг", skin_rich: "Золотая Утка",
+    item1_name: "Крошки Хлеба", item2_name: "Старая Кепка", item3_name: "Гитара Бродяги",
+    item4_name: "Киоск с Шаурмой", item5_name: "Крипто-Ферма", item6_name: "Сеть Банков",
+    item7_name: "Утиный ИИ", item8_name: "Миссия на Марс", item9_name: "Крипто-Биржа",
+    item10_name: "Телеканал", daily_bonus: "🎁 Ежедневный Бонус!", boosts: "🔄 Бусты (За видео)",
+    boost_energy: "Энергия", boost_x5: "Буст x5", boost_auto: "Автокликер", boost_magnet: "+5,000 Монет",
+    tomorrow: "Завтра", watch: "Смотреть", min: "мин", socials: "🌐 Соцсети", sub_tg: "📣 Подписка Telegram",
+    sub_x: "✖️ Подписка на X", done: "Выполнено", go: "Перейти", achievements: "🏆 Достижения",
+    claim: "Забрать", claimed: "Забрано", reward: "Награда", ach_10k: "Накопи 10,000 монет",
+    ach_lvl3: "Достигни 3 уровня", ach_ref3: "Пригласи 3 друзей", ach_ref10: "Пригласи 10 друзей",
+    friends_title: "👥 Ваши Друзья", friends_desc_1: "Приглашай друзей и получай ", friends_desc_2: " сразу.",
+    friends_desc_3: "Помоги другу прокачаться:", friends_desc_4: "Достигнет 3-го уровня 👉 ",
+    friends_desc_5: "Достигнет 5-го уровня 👉 ", invite_btn: "🚀 Пригласить друга", copy_link: "Скопировать ссылку",
+    friends_list: "Список рефералов", no_friends: "Вы еще никого не пригласили 😢\nОтправьте ссылку другу!", req_lvl: "Нужен Ур.",
+    info_title: "ℹ️ Инфо и Правила", info_goal_title: "Цель игры:", info_goal_desc: "Кликай, покупай бизнесы и поднимайся в лигах. Выше уровень — больше заработок!",
+    info_donate_title: "Никаких Донатов:", info_donate_desc: "Главный донат — это ваше время! Мы ничего не продаем за реальные деньги.",
+    info_fair_title: "Честный рейтинг:", info_fair_desc: "Каждого 1-го числа мы фиксируем лучших игроков и обнуляем монеты (скины и друзья остаются навсегда).",
+    info_pool_title: "Призовой фонд (20% от дохода):", info_pool_desc: "Мы отдаем ровно 20% от дохода с рекламы каждый месяц!\n• 10% — делят ТОП-11 игроков.\n• 10% — забирает ТОП-1 Сквад.",
+    onb_1_title: "Привет в Gold Duck!", onb_1_desc: "Это честная игра, где мы отдаем 20% дохода игрокам и сквадам в конце сезона.",
+    onb_2_title: "Никаких Донатов!", onb_2_desc: "Твое время — главная валюта! Ты не платишь ничего, но можешь выиграть призы.",
+    onb_3_title: "Пассивный доход", onb_3_desc: "Бизнесы приносят монеты даже когда ты оффлайн (до 3 часов).",
+    onb_4_title: "Сквады (Команды)", onb_4_desc: "Объединяйся в команды! Если ваш сквад победит, все получат большой бонус.",
+    onb_next: "Далее ➔", onb_start: "Начать Игру! 🚀",
+    lvl_names: ["Бродяга", "Новичок", "Искатель", "Хулиган", "Бизнесмен", "Босс", "Магнат", "Олигарх", "Божество", "Творець"],
+    league_1: "Бронзовая Лига 🥉", league_2: "Серебряная Лига 🥈", league_3: "Золотая Лига 🏆", league_4: "Бриллиантовая Лига 💎",
+    offline_msg: "Ты спал, а бизнес работал!"
   }
 };
 
 // ==========================================
-// ГОЛОВНИЙ КОМПОНЕНТ
+// ГОЛОВНИЙ КОМПОНЕНТ APP
 // ==========================================
+export default function App() {
+  const tg = window.Telegram?.WebApp;
+  const user = tg?.initDataUnsafe?.user;
+  const startParam = tg?.initDataUnsafe?.start_param;
 
-function App() {
-  const tg = window.Telegram.WebApp;
-  const user = tg.initDataUnsafe?.user;
-  const startParam = tg.initDataUnsafe?.start_param;
-
-  // Визначення мови гравця (Fallback: Англійська)
+  // Локалізація
   const userLang = user?.language_code || 'en';
   const currentLang = translations[userLang] ? userLang : 'en';
   const t = (key) => translations[currentLang][key] || key;
 
+  // Стейт
   const [userData, setUserData] = useState(null);
   const [points, setPoints] = useState(0);
   const [totalEarned, setTotalEarned] = useState(0);
@@ -373,7 +173,6 @@ function App() {
   const [activeTab, setActiveTab] = useState('tap');
   const [shopSubTab, setShopSubTab] = useState('business');
   const [clicks, setClicks] = useState([]);
-  
   const [friendsList, setFriendsList] = useState([]);
 
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -403,7 +202,6 @@ function App() {
   const pendingTaps = useRef(0);
   const tapTimeout = useRef(null);
 
-  // Хелпери для ліги
   const getLeagueData = (lvl) => {
     if (lvl <= 3) return { name: t('league_1'), color: "text-orange-400" };
     if (lvl <= 6) return { name: t('league_2'), color: "text-gray-300" };
@@ -411,39 +209,24 @@ function App() {
     return { name: t('league_4'), color: "text-cyan-400" };
   };
 
-  // ==========================================
-  // ВІБРАЦІЯ
-  // ==========================================
   const triggerHaptic = (type) => {
-    try {
-      if (hapticEnabled && tg?.HapticFeedback?.impactOccurred) {
-        tg.HapticFeedback.impactOccurred(type);
-      }
-    } catch (e) {}
+    try { if (hapticEnabled && tg?.HapticFeedback?.impactOccurred) tg.HapticFeedback.impactOccurred(type); } catch (e) {}
   };
 
   const triggerNotification = (type) => {
-    try {
-      if (hapticEnabled && tg?.HapticFeedback?.notificationOccurred) {
-        tg.HapticFeedback.notificationOccurred(type);
-      }
-    } catch (e) {}
+    try { if (hapticEnabled && tg?.HapticFeedback?.notificationOccurred) tg.HapticFeedback.notificationOccurred(type); } catch (e) {}
   };
 
   const triggerSelection = () => {
-    try {
-      if (hapticEnabled && tg?.HapticFeedback?.selectionChanged) {
-        tg.HapticFeedback.selectionChanged();
-      }
-    } catch (e) {}
+    try { if (hapticEnabled && tg?.HapticFeedback?.selectionChanged) tg.HapticFeedback.selectionChanged(); } catch (e) {}
   };
 
-  // ==========================================
-  // ІНІЦІАЛІЗАЦІЯ
-  // ==========================================
+  // Ініціалізація
   useEffect(() => {
-    tg.expand();
-    tg.disableVerticalSwipes();
+    if(tg) {
+      tg.expand();
+      tg.disableVerticalSwipes();
+    }
 
     const fetchUser = async () => {
       if (!user) return;
@@ -479,6 +262,7 @@ function App() {
     fetchUser();
   }, [user, startParam, showOnboarding]);
 
+  // Завантаження друзів
   useEffect(() => {
     if (activeTab === 'friends' && userData) {
       axios.get(`${SERVER_URL}/user/friends?telegram_id=${userData.telegram_id}`)
@@ -495,9 +279,7 @@ function App() {
     setTimeout(() => setIsFlipping(false), 1000);
   };
 
-  // ==========================================
-  // ПАСИВНИЙ ДОХІД
-  // ==========================================
+  // Пасивний дохід
   useEffect(() => {
     let totalIncomePerHour = passiveIncome;
     let addedPerSec = totalIncomePerHour / 3600;
@@ -510,18 +292,11 @@ function App() {
         const newTotal = prev + addedPerSec;
         let calcLevel = 1;
         for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
-          if (newTotal >= LEVEL_THRESHOLDS[i]) { 
-            calcLevel = i + 1; 
-            break; 
-          }
+          if (newTotal >= LEVEL_THRESHOLDS[i]) { calcLevel = i + 1; break; }
         }
         if (calcLevel > 10) calcLevel = 10;
-        
         setLevel(currentLevel => {
-          if (calcLevel > currentLevel) { 
-            triggerLevelUp(calcLevel); 
-            return calcLevel; 
-          }
+          if (calcLevel > currentLevel) { triggerLevelUp(calcLevel); return calcLevel; }
           return currentLevel;
         });
         return newTotal;
@@ -551,9 +326,7 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // ==========================================
-  // КЛІК ПО КАЧЦІ
-  // ==========================================
+  // Кліки
   const handleTap = (e) => {
     if (!userData || showLeaderboard || showDailyModal || showLevelUp || showSquadModal || showOnboarding || showSettings) return;
     if (energy <= 0) return;
@@ -571,7 +344,6 @@ function App() {
         if (newTotal >= LEVEL_THRESHOLDS[i]) { calcLevel = i + 1; break; }
       }
       if (calcLevel > 10) calcLevel = 10;
-      
       setLevel(currentLevel => {
         if (calcLevel > currentLevel) { triggerLevelUp(calcLevel); return calcLevel; }
         return currentLevel;
@@ -583,17 +355,10 @@ function App() {
     setEnergy(prev => prev - 1);
 
     const rect = duckRef.current.getBoundingClientRect();
-    const newClick = { 
-      id: Date.now() + Math.random(), 
-      x: e.clientX - rect.left, 
-      y: e.clientY - rect.top, 
-      val: tapValue 
-    };
+    const newClick = { id: Date.now() + Math.random(), x: e.clientX - rect.left, y: e.clientY - rect.top, val: tapValue };
 
     setClicks(prev => [...prev.slice(-20), newClick]);
-    setTimeout(() => { 
-      setClicks(prev => prev.filter(c => c.id !== newClick.id)); 
-    }, 1000);
+    setTimeout(() => { setClicks(prev => prev.filter(c => c.id !== newClick.id)); }, 1000);
 
     pendingTaps.current += 1;
     clearTimeout(tapTimeout.current);
@@ -603,148 +368,85 @@ function App() {
       pendingTaps.current = 0;
       if (countToSend > 0) {
         try {
-          await axios.post(`${SERVER_URL}/user/tap`, { 
-            telegram_id: userData.telegram_id, 
-            count: countToSend 
-          });
+          await axios.post(`${SERVER_URL}/user/tap`, { telegram_id: userData.telegram_id, count: countToSend });
         } catch (err) { console.error(err); }
       }
     }, 500);
   };
 
-  // ==========================================
-  // РЕКЛАМА
-  // ==========================================
+  // API Дії
   const watchAdForBoost = (boostType) => {
     if (window.Adsgram) {
       const AdController = window.Adsgram.init({ blockId: "25905" });
-      
       AdController.show()
         .then(async () => {
           triggerNotification('success');
           try {
-            const res = await axios.post(`${SERVER_URL}/user/ad_boost`, { 
-              telegram_id: userData.telegram_id, 
-              boost_type: boostType, 
-              fallback: false 
-            });
-            setUserData(res.data.user); 
-            setPoints(Number(res.data.user.season_points)); 
-            setTotalEarned(Number(res.data.user.total_earned));
-            
+            const res = await axios.post(`${SERVER_URL}/user/ad_boost`, { telegram_id: userData.telegram_id, boost_type: boostType, fallback: false });
+            setUserData(res.data.user); setPoints(Number(res.data.user.season_points)); setTotalEarned(Number(res.data.user.total_earned));
             if (boostType === 'energy') setEnergy(MAX_ENERGY);
-            tg.showAlert("Boost Activated! 🚀");
-          } catch (err) { 
-            tg.showAlert("Error"); 
-          }
+          } catch (err) { tg?.showAlert("Error"); }
         })
         .catch(async () => {
           triggerNotification('warning');
           try {
-            const res = await axios.post(`${SERVER_URL}/user/ad_boost`, { 
-              telegram_id: userData.telegram_id, 
-              boost_type: boostType, 
-              fallback: true 
-            });
-            setUserData(res.data.user); 
-            setPoints(Number(res.data.user.season_points)); 
-            setTotalEarned(Number(res.data.user.total_earned));
-            
+            const res = await axios.post(`${SERVER_URL}/user/ad_boost`, { telegram_id: userData.telegram_id, boost_type: boostType, fallback: true });
+            setUserData(res.data.user); setPoints(Number(res.data.user.season_points)); setTotalEarned(Number(res.data.user.total_earned));
             let calcLvl = 1;
             for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
               if (Number(res.data.user.total_earned) >= LEVEL_THRESHOLDS[i]) { calcLvl = i + 1; break; }
             }
             if (calcLvl > level) { triggerLevelUp(calcLvl); setLevel(calcLvl); }
-            tg.showAlert("No ads right now. Bonus +1500 coins! 💰");
-          } catch (err) { 
-            tg.showAlert("Cooldown active"); 
-          }
+            tg?.showAlert("Bonus +1500! 💰");
+          } catch (err) { tg?.showAlert("Cooldown active"); }
         });
     } else {
-      tg.showAlert("Ads error.");
+      tg?.showAlert("Ads error.");
     }
   };
 
-  // ==========================================
-  // ІНШІ ФУНКЦІЇ ТА ДРУЗІ
-  // ==========================================
   const buyUpgrade = async (item, currentCost) => {
     if (points < currentCost) { triggerNotification('error'); return; }
     triggerNotification('success');
-    
     try {
-      const response = await axios.post(`${SERVER_URL}/user/buy_upgrade`, { 
-        telegram_id: userData.telegram_id, 
-        item_id: item.id, 
-        cost: currentCost, 
-        income_increase: item.income 
-      });
-      setUserData(response.data.user); 
-      setPoints(Number(response.data.user.season_points)); 
-      setPassiveIncome(Number(response.data.user.passive_income));
-    } catch (err) { 
-      tg.showAlert("Error"); 
-    }
+      const response = await axios.post(`${SERVER_URL}/user/buy_upgrade`, { telegram_id: userData.telegram_id, item_id: item.id, cost: currentCost, income_increase: item.income });
+      setUserData(response.data.user); setPoints(Number(response.data.user.season_points)); setPassiveIncome(Number(response.data.user.passive_income));
+    } catch (err) { tg?.showAlert("Error"); }
   };
 
   const handleSkin = async (skin) => {
     const isOwned = userData.unlocked_skins?.includes(skin.id);
     if (!isOwned && points < skin.cost) return;
-    
     triggerNotification('success');
     try {
-      const res = await axios.post(`${SERVER_URL}/user/buy_skin`, { 
-        telegram_id: userData.telegram_id, 
-        skin_id: skin.id, 
-        cost: skin.cost 
-      });
-      setUserData(res.data.user); 
-      setPoints(Number(res.data.user.season_points));
+      const res = await axios.post(`${SERVER_URL}/user/buy_skin`, { telegram_id: userData.telegram_id, skin_id: skin.id, cost: skin.cost });
+      setUserData(res.data.user); setPoints(Number(res.data.user.season_points));
     } catch (err) {}
   };
 
   const resetToEvolutionSkin = async () => {
     try {
-      const res = await axios.post(`${SERVER_URL}/user/buy_skin`, { 
-        telegram_id: userData.telegram_id, 
-        skin_id: 'default', 
-        cost: 0 
-      });
-      setUserData(res.data.user); 
-      triggerNotification('success');
+      const res = await axios.post(`${SERVER_URL}/user/buy_skin`, { telegram_id: userData.telegram_id, skin_id: 'default', cost: 0 });
+      setUserData(res.data.user); triggerNotification('success');
     } catch (err) {}
   };
 
   const submitSquad = async () => {
     if (!squadInput.trim()) return;
     try {
-      const res = await axios.post(`${SERVER_URL}/squad/join`, { 
-        telegram_id: userData.telegram_id, 
-        squad_username: squadInput 
-      });
-      setUserData(res.data.user); 
-      triggerNotification('success'); 
-      setShowSquadModal(false); 
-      tg.showAlert(`Success! @${res.data.squad.username}`);
-    } catch (err) { 
-      tg.showAlert("Error"); 
-    }
+      const res = await axios.post(`${SERVER_URL}/squad/join`, { telegram_id: userData.telegram_id, squad_username: squadInput });
+      setUserData(res.data.user); triggerNotification('success'); setShowSquadModal(false); tg?.showAlert(`Success! @${res.data.squad.username}`);
+    } catch (err) { tg?.showAlert("Error"); }
   };
 
   const claimFriendReward = async (friendId, reqLevel) => {
     triggerNotification('success');
     try {
       const res = await axios.post(`${SERVER_URL}/user/claim_ref_reward`, {
-        telegram_id: userData.telegram_id,
-        friend_id: friendId,
-        reward_level: reqLevel
+        telegram_id: userData.telegram_id, friend_id: friendId, reward_level: reqLevel
       });
-      
-      setUserData(res.data.user);
-      setPoints(Number(res.data.user.season_points));
-      setTotalEarned(Number(res.data.user.total_earned));
-      tg.showAlert(`+${res.data.reward} 💰`);
-      
+      setUserData(res.data.user); setPoints(Number(res.data.user.season_points)); setTotalEarned(Number(res.data.user.total_earned));
+      tg?.showAlert(`+${res.data.reward} 💰`);
       setFriendsList(prev => prev.map(f => {
         if (f.telegram_id === friendId) {
           if (reqLevel === 3) return { ...f, ref_reward_lvl3_claimed: true };
@@ -752,9 +454,7 @@ function App() {
         }
         return f;
       }));
-    } catch (err) {
-      tg.showAlert('Error');
-    }
+    } catch (err) { tg?.showAlert('Error'); }
   };
 
   const claimAchievement = async (id, reward, goal, type = 'points') => {
@@ -762,78 +462,41 @@ function App() {
     if (type === 'points' && totalEarned < goal) return;
     if (type === 'level' && level < goal) return;
     if (type === 'refs' && (userData.referrals_count || 0) < goal) return;
-
     triggerNotification('success');
     try {
-      const res = await axios.post(`${SERVER_URL}/user/achievement`, { 
-        telegram_id: userData.telegram_id, 
-        achievement_id: id, 
-        reward 
-      });
-      setUserData(res.data.user); 
-      setPoints(Number(res.data.user.season_points)); 
-      setTotalEarned(Number(res.data.user.total_earned)); 
-      tg.showAlert(`+${reward} 💰`);
+      const res = await axios.post(`${SERVER_URL}/user/achievement`, { telegram_id: userData.telegram_id, achievement_id: id, reward });
+      setUserData(res.data.user); setPoints(Number(res.data.user.season_points)); setTotalEarned(Number(res.data.user.total_earned)); tg?.showAlert(`+${reward} 💰`);
     } catch (err) {}
   };
 
   const claimSocialTask = async (type, link) => {
     if (userData[`task_${type}_claimed`]) return;
-    tg.openLink(link);
-    
+    tg?.openLink(link);
     setTimeout(async () => {
       try {
-        const response = await axios.post(`${SERVER_URL}/user/claim_task`, { 
-          telegram_id: userData.telegram_id, 
-          task_type: type 
-        });
-        setPoints(Number(response.data.user.season_points)); 
-        setTotalEarned(Number(response.data.user.total_earned)); 
-        setUserData(response.data.user); 
-        triggerNotification('success'); 
-        tg.showAlert(`+${response.data.reward} 💰`);
+        const response = await axios.post(`${SERVER_URL}/user/claim_task`, { telegram_id: userData.telegram_id, task_type: type });
+        setPoints(Number(response.data.user.season_points)); setTotalEarned(Number(response.data.user.total_earned)); setUserData(response.data.user); triggerNotification('success'); tg?.showAlert(`+${response.data.reward} 💰`);
       } catch (err) {}
     }, 5000);
   };
 
   const claimTelegramTask = async () => {
     if (userData.task_tg_claimed) return;
-    tg.openTelegramLink(CHANNEL_URL);
-    
+    tg?.openTelegramLink(CHANNEL_URL);
     setTimeout(async () => {
       try {
-        const response = await axios.post(`${SERVER_URL}/user/claim_task`, { 
-          telegram_id: userData.telegram_id, 
-          task_type: 'telegram' 
-        });
-        setPoints(Number(response.data.user.season_points)); 
-        setTotalEarned(Number(response.data.user.total_earned)); 
-        setUserData(response.data.user); 
-        triggerNotification('success'); 
-        tg.showAlert("+25,000 💰");
+        const response = await axios.post(`${SERVER_URL}/user/claim_task`, { telegram_id: userData.telegram_id, task_type: 'telegram' });
+        setPoints(Number(response.data.user.season_points)); setTotalEarned(Number(response.data.user.total_earned)); setUserData(response.data.user); triggerNotification('success'); tg?.showAlert("+25,000 💰");
       } catch (err) {}
     }, 5000);
   };
 
   const resetProgress = async () => {
-    tg.showConfirm("Restart from Zero?", async (agreed) => {
+    tg?.showConfirm("Restart from Zero?", async (agreed) => {
       if (agreed) {
         try {
-          const res = await axios.post(`${SERVER_URL}/user/reset`, { 
-            telegram_id: userData.telegram_id 
-          });
-          setUserData(res.data.user); 
-          setPoints(0); 
-          setTotalEarned(0); 
-          setLevel(1); 
-          setEnergy(MAX_ENERGY); 
-          setPassiveIncome(0); 
-          triggerNotification('success'); 
-          setActiveTab('tap'); 
-          setShowSettings(false); 
-          localStorage.removeItem('onboarding_done'); 
-          setShowOnboarding(true); 
-          setOnboardingStep(0);
+          const res = await axios.post(`${SERVER_URL}/user/reset`, { telegram_id: userData.telegram_id });
+          setUserData(res.data.user); setPoints(0); setTotalEarned(0); setLevel(1); setEnergy(MAX_ENERGY); setPassiveIncome(0); triggerNotification('success'); setActiveTab('tap'); setShowSettings(false); localStorage.removeItem('onboarding_done'); setShowOnboarding(true); setOnboardingStep(0);
         } catch (err) {}
       }
     });
@@ -851,18 +514,9 @@ function App() {
 
   const claimDaily = async () => {
     try {
-      const response = await axios.post(`${SERVER_URL}/user/daily`, { 
-        telegram_id: userData.telegram_id 
-      });
-      setPoints(Number(response.data.user.season_points)); 
-      setTotalEarned(Number(response.data.user.total_earned)); 
-      setUserData(response.data.user); 
-      setShowDailyModal(false); 
-      setDailyAvailable(false); 
-      triggerNotification('success');
-    } catch (err) { 
-      setShowDailyModal(false); 
-    }
+      const response = await axios.post(`${SERVER_URL}/user/daily`, { telegram_id: userData.telegram_id });
+      setPoints(Number(response.data.user.season_points)); setTotalEarned(Number(response.data.user.total_earned)); setUserData(response.data.user); setShowDailyModal(false); setDailyAvailable(false); triggerNotification('success');
+    } catch (err) { setShowDailyModal(false); }
   };
 
   const toggleHaptic = () => {
@@ -880,11 +534,6 @@ function App() {
 
   const isCooldown = (readyAt) => readyAt && new Date(readyAt).getTime() > Date.now();
   const getRemainingMin = (readyAt) => Math.ceil((new Date(readyAt).getTime() - Date.now()) / 60000);
-
-  // ==========================================
-  // РЕНДЕР ІНТЕРФЕЙСУ
-  // ==========================================
-
   if (!user || !userData) {
     return (
       <div className="h-screen bg-gray-950 flex flex-col items-center justify-center font-bold text-yellow-400">
@@ -962,12 +611,11 @@ function App() {
       
       {offlineEarned > 0 && (
         <div className="absolute top-20 left-4 right-4 bg-green-500 text-white p-4 rounded-2xl shadow-2xl z-50 text-center animate-fade-in border-2 border-green-400">
-          <p className="font-black text-xl mb-1">Offline Bonus!</p>
+          <p className="font-black text-xl mb-1">{t('offline_msg')}</p>
           <p className="font-bold text-lg">+ {offlineEarned} 💰</p>
         </div>
       )}
       
-      {/* HEADER */}
       <div className="text-center w-full p-4 z-10 shrink-0">
         <div className="flex justify-between items-center mb-4">
           <div className="text-left flex flex-col items-start">
@@ -1022,7 +670,6 @@ function App() {
         </div>
       </div>
 
-      {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col overflow-hidden relative pb-[85px]">
         
         {/* ============================== TAB: PLAY ============================== */}
@@ -1313,7 +960,7 @@ function App() {
                   triggerHaptic('light');
                   const link = `https://t.me/${BOT_USERNAME}?start=${userData.telegram_id}`;
                   const text = `🦆 Gold Duck!`;
-                  tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
+                  tg?.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
                 }}
                 className="bg-blue-600 text-white font-black py-4 px-6 rounded-xl w-full active:scale-95 transition-all flex items-center justify-center gap-2 mb-3"
               >
@@ -1325,7 +972,7 @@ function App() {
                   triggerHaptic('light');
                   const link = `https://t.me/${BOT_USERNAME}?start=${userData.telegram_id}`;
                   navigator.clipboard.writeText(link);
-                  tg.showAlert('✅ Copied!');
+                  tg?.showAlert('✅ Copied!');
                 }}
                 className="text-xs text-gray-400 underline active:text-white py-2"
               >
@@ -1390,27 +1037,46 @@ function App() {
         {activeTab === 'info' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
             <h2 className="text-2xl font-black text-yellow-400 mb-4 text-center">{t('info_title')}</h2>
-            <div className="bg-gray-800 border border-gray-700 p-5 rounded-3xl text-sm text-gray-300 space-y-4 mb-6 shadow-xl">
-              <p><strong className="text-yellow-400 text-base">{t('info_goal_title')}</strong><br/>{t('info_goal_desc')}</p>
-              <hr className="border-gray-700"/>
-              <p><strong className="text-green-400 text-base">{t('info_donate_title')}</strong><br/>{t('info_donate_desc')}</p>
-              <hr className="border-gray-700"/>
-              <p><strong className="text-white text-base">{t('info_fair_title')}</strong><br/>{t('info_fair_desc')}</p>
-              <hr className="border-gray-700"/>
-              <p className="whitespace-pre-line"><strong className="text-orange-400 text-base">{t('info_pool_title')}</strong><br/>{t('info_pool_desc')}</p>
-            </div>
             
-            {String(user.id) === ADMIN_TELEGRAM_ID && (
-              <div className="bg-red-900/50 border-2 border-red-500 p-5 rounded-3xl mb-6">
-                <h3 className="text-white font-bold mb-2 text-center">Admin Panel</h3>
-                <button 
-                  onClick={endSeasonAdmin} 
-                  className="bg-red-600 text-white font-black py-4 rounded-xl w-full active:scale-95 transition-all"
-                >
-                  🛑 END SEASON
-                </button>
-              </div>
-            )}
+            <div className="bg-gray-800/80 border border-gray-700 p-6 rounded-3xl text-sm text-gray-200 space-y-6 shadow-xl mb-20 backdrop-blur-sm">
+              <section>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">🦆</span>
+                  <strong className="text-yellow-400 text-lg">{t('info_goal_title')}</strong>
+                </div>
+                <p className="leading-relaxed opacity-90">{t('info_goal_desc')}</p>
+              </section>
+
+              <div className="h-[1px] bg-gradient-to-r from-transparent via-gray-600 to-transparent"></div>
+
+              <section>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">💸</span>
+                  <strong className="text-green-400 text-lg">{t('info_donate_title')}</strong>
+                </div>
+                <p className="leading-relaxed opacity-90">{t('info_donate_desc')}</p>
+              </section>
+
+              <div className="h-[1px] bg-gradient-to-r from-transparent via-gray-600 to-transparent"></div>
+
+              <section>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">🏆</span>
+                  <strong className="text-white text-lg">{t('info_fair_title')}</strong>
+                </div>
+                <p className="leading-relaxed opacity-90">{t('info_fair_desc')}</p>
+              </section>
+
+              <div className="h-[1px] bg-gradient-to-r from-transparent via-gray-600 to-transparent"></div>
+
+              <section>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">💰</span>
+                  <strong className="text-orange-400 text-lg">{t('info_pool_title')}</strong>
+                </div>
+                <p className="leading-relaxed opacity-90 whitespace-pre-line">{t('info_pool_desc')}</p>
+              </section>
+            </div>
           </div>
         )}
       </div>
@@ -1469,6 +1135,12 @@ function App() {
               ))
             )}
           </div>
+          {currentUserRankData && leaderboardTab === 'players' && (
+            <div className="bg-gradient-to-r from-yellow-600 to-orange-600 p-4 rounded-2xl mt-2 shrink-0 flex justify-between items-center shadow-lg">
+              <div className="flex items-center gap-3"><span className="font-black text-white w-6 text-center">{currentUserRankData.rank || '-'}</span><div><h3 className="font-bold text-white text-sm">Rank</h3><p className="text-[10px] text-yellow-200">{getLeagueData(currentUserRankData.level).name}</p></div></div>
+              <span className="font-black text-white">{currentUserRankData.total_earned} 💰</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -1528,5 +1200,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
