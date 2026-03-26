@@ -12,7 +12,10 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Підключення до бази даних
+// ==========================================
+// БАЗА ДАНИХ
+// ==========================================
+
 const sequelize = new Sequelize(process.env.DATABASE_URL || 'sqlite::memory:', {
   dialect: process.env.DATABASE_URL ? 'postgres' : 'sqlite',
   protocol: process.env.DATABASE_URL ? 'postgres' : 'sqlite',
@@ -20,7 +23,6 @@ const sequelize = new Sequelize(process.env.DATABASE_URL || 'sqlite::memory:', {
   dialectOptions: process.env.DATABASE_URL ? { ssl: { require: true, rejectUnauthorized: false } } : {}
 });
 
-// Моделі бази даних
 const Squad = sequelize.define('Squad', {
   username: { type: DataTypes.STRING, unique: true, primaryKey: true },
   name: { type: DataTypes.STRING, allowNull: false },
@@ -43,20 +45,17 @@ const User = sequelize.define('User', {
   referrer_rewarded: { type: DataTypes.BOOLEAN, defaultValue: false },
   referrals_count: { type: DataTypes.INTEGER, defaultValue: 0 },
   
-  // Бусти та Енергія
   boost_until: { type: DataTypes.DATE, allowNull: true },
   boost_multiplier: { type: DataTypes.INTEGER, defaultValue: 1 },
   auto_click_until: { type: DataTypes.DATE, allowNull: true },
   energy: { type: DataTypes.INTEGER, defaultValue: 2000 },
   last_energy_update: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   
-  // Пасивний дохід та Щоденки
   passive_income: { type: DataTypes.INTEGER, defaultValue: 0 },
   last_passive_collect: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   daily_streak: { type: DataTypes.INTEGER, defaultValue: 0 },
   last_daily_claim: { type: DataTypes.DATE, allowNull: true },
   
-  // Рекламні ліміти та Кулдауни
   last_boost_reset: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   free_energy_refills: { type: DataTypes.INTEGER, defaultValue: 3 }, 
   ad_energy_left: { type: DataTypes.INTEGER, defaultValue: 3 },
@@ -68,7 +67,6 @@ const User = sequelize.define('User', {
   ad_autoclick_ready_at: { type: DataTypes.DATE, allowNull: true },
   ad_magnet_ready_at: { type: DataTypes.DATE, allowNull: true },
   
-  // Завдання
   task_tg_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   task_x_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   task_yt_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
@@ -80,7 +78,6 @@ User.belongsTo(Squad, { foreignKey: 'squad_id' });
 
 sequelize.sync({ alter: true }).then(() => console.log('✅ База даних успішно оновлена!'));
 
-// Константи
 const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
 const MAX_ENERGY = 2000;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
@@ -91,7 +88,10 @@ const SHOP_ITEMS_DB = {
   9: { reqRefs: 3 }, 10: { reqRefs: 7 } 
 };
 
-// Хелпери
+// ==========================================
+// ХЕЛПЕРИ
+// ==========================================
+
 const sendTelegramMessage = async (chatId, text) => {
   const token = process.env.BOT_TOKEN;
   if (!token || !chatId) return;
@@ -151,7 +151,6 @@ const calculateOfflineProgress = async (user) => {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const lastReset = new Date(user.last_boost_reset); lastReset.setHours(0, 0, 0, 0);
   
-  // Обнулення лімітів на новий день
   if (today > lastReset) { 
     user.free_energy_refills = 3; 
     user.ad_energy_left = 3; 
@@ -165,14 +164,12 @@ const calculateOfflineProgress = async (user) => {
     user.last_boost_reset = now; 
   }
   
-  // Відновлення енергії
   const secondsPassedEnergy = (now - new Date(user.last_energy_update)) / 1000;
   if (secondsPassedEnergy > 0) { 
     user.energy = Math.min(MAX_ENERGY, user.energy + Math.floor(secondsPassedEnergy / 3)); 
     user.last_energy_update = now; 
   }
   
-  // Пасивний дохід
   let passiveEarned = 0;
   let currentPassive = user.passive_income;
   if (user.auto_click_until && new Date(user.auto_click_until) > now) {
@@ -200,7 +197,6 @@ const calculateOfflineProgress = async (user) => {
     }
   }
   
-  // Щоденний бонус
   let dailyAvailable = false;
   const lastClaim = user.last_daily_claim ? new Date(user.last_daily_claim) : null;
   if (!lastClaim) {
@@ -231,7 +227,9 @@ const checkTelegramSubscription = (userId) => {
   });
 };
 
-// --- ЕНДПОІНТИ ---
+// ==========================================
+// ЕНДПОІНТИ
+// ==========================================
 
 app.post('/api/user/init', async (req, res) => {
   const { telegram_id, first_name, start_param } = req.body;
@@ -326,7 +324,7 @@ app.post('/api/user/tap', async (req, res) => {
 app.post('/api/user/ad_boost', async (req, res) => {
   const { telegram_id, boost_type, fallback } = req.body;
   const now = new Date();
-  const AD_COOLDOWN_MS = 60 * 60 * 1000; // 1 Година
+  const AD_COOLDOWN_MS = 60 * 60 * 1000; 
   const cooldownEnd = new Date(now.getTime() + AD_COOLDOWN_MS);
 
   try {
@@ -365,7 +363,6 @@ app.post('/api/user/ad_boost', async (req, res) => {
       return res.status(400).json({ error: 'Невідомий буст' });
     }
 
-    // Якщо це "План Б", даємо замість буста просто 1500 монет
     if (fallback) {
       user.season_points = Number(user.season_points) + 1500;
       user.total_earned = Number(user.total_earned) + 1500;
@@ -407,10 +404,15 @@ app.post('/api/squad/join', async (req, res) => {
   }
 });
 
+// 🔥 ОСЬ ГОЛОВНЕ ВИПРАВЛЕННЯ МАГАЗИНУ (Скіни) 🔥
 app.post('/api/user/buy_skin', async (req, res) => {
   const { telegram_id, skin_id, cost } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
+    
+    // ДОДАНО: Спочатку нараховуємо пасивний дохід
+    await calculateOfflineProgress(user);
+    
     let skins = user.unlocked_skins || ['default'];
     if (skins.includes(skin_id)) {
       user.current_skin = skin_id;
@@ -428,11 +430,16 @@ app.post('/api/user/buy_skin', async (req, res) => {
   }
 });
 
+// 🔥 ОСЬ ГОЛОВНЕ ВИПРАВЛЕННЯ МАГАЗИНУ (Бізнеси) 🔥
 app.post('/api/user/buy_upgrade', async (req, res) => {
   const { telegram_id, item_id, cost, income_increase } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
-    if (user.season_points < cost) return res.status(400).json({ error: 'Недостатньо' });
+    
+    // ДОДАНО: Спочатку нараховуємо пасивний дохід
+    await calculateOfflineProgress(user);
+    
+    if (user.season_points < cost) return res.status(400).json({ error: 'Недостатньо монет' });
     const requiredRefs = SHOP_ITEMS_DB[item_id]?.reqRefs || 0;
     
     if (user.referrals_count < requiredRefs) { 
@@ -457,6 +464,10 @@ app.post('/api/user/achievement', async (req, res) => {
   const { telegram_id, achievement_id, reward } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
+    
+    // ДОДАНО: Спочатку нараховуємо пасивний дохід
+    await calculateOfflineProgress(user);
+    
     let achs = user.achievements || [];
     if (achs.includes(achievement_id)) return res.status(400).json({ error: 'Вже отримано' });
     if (achievement_id === 'ref_3' && user.referrals_count < 3) return res.status(400).json({ error: 'Недостатньо друзів' });
