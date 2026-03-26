@@ -5,6 +5,7 @@ import { Sequelize, DataTypes, Op } from 'sequelize';
 import https from 'https';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -726,9 +727,10 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 
 // ==========================================
-// ЛОГІКА ТЕЛЕГРАМ БОТА (Long Polling)
+// ЛОГІКА ТЕЛЕГРАМ БОТА (Відповідь на /start)
 // ==========================================
 const botToken = process.env.BOT_TOKEN;
+// ВАЖЛИВО: Переконайся, що в Railway в змінних (Variables) є BOT_TOKEN!
 const webAppUrl = process.env.WEBAPP_URL || 'https://duck-clicker-production.up.railway.app'; 
 
 if (botToken) {
@@ -783,12 +785,25 @@ if (botToken) {
 // ==========================================
 // РОЗДАЧА ФРОНТЕНДУ (З'єднання React та Node.js)
 // ==========================================
-// Вказуємо серверу, де лежить зібраний фронтенд (папка dist)
-app.use(express.static(path.join(__dirname, '../dist')));
 
-// Якщо хтось заходить на будь-яку іншу сторінку, віддаємо головний файл гри
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+// Розумна перевірка: якщо немає файлів гри, показуємо підказку, що треба зібрати фронтенд
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    // Якщо ти бачиш це червоне повідомлення у грі — отже на Railway не виконалась команда npm run build
+    res.status(404).send(`
+      <div style="font-family: sans-serif; text-align: center; padding: 50px; background: #111; color: #fff; height: 100vh;">
+        <h2>🚨 Помилка: Фронтенд не зібрано!</h2>
+        <p>Сервер Node.js працює чудово, але він не може знайти папку <b>dist</b> із грою.</p>
+        <p>Переконайся, що на Railway у налаштуваннях виконується команда збірки (наприклад: <code>npm run build</code>).</p>
+      </div>
+    `);
+  }
 });
 
 // Запуск сервера Express
