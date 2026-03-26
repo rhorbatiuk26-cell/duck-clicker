@@ -6,7 +6,8 @@ import axios from 'axios';
 // ==========================================
 
 const SERVER_URL = 'https://duck-clicker-production.up.railway.app/api';
-const CHANNEL_URL = 'https://t.me/ТУТ_ТВІЙ_КАНАЛ';
+// 🔥 ЗМІНЕНО НА ТВОЄ ПОСИЛАННЯ
+const CHANNEL_URL = 'https://t.me/GoldDuckTap';
 
 const BOT_USERNAME = 'GoldDuckTap_bot';
 const ADMIN_TELEGRAM_ID = '1057689349';
@@ -74,17 +75,19 @@ const SKINS = [
   },
 ];
 
+// 🔥 ІДЕАЛЬНИЙ БАЛАНС БІЗНЕСІВ 🔥
+// Геометричне зростання ціни (cost) і правильне зростання прибутку (income)
 const SHOP_ITEMS = [
-  { id: 1, name: "Крихти Хліба", desc: "+300 монет / год", baseCost: 2500, income: 300, icon: "🍞" },
-  { id: 2, name: "Стара Кепка", desc: "+1,500 монет / год", baseCost: 15000, income: 1500, icon: "🧢" },
-  { id: 3, name: "Гітара Бродяги", desc: "+6,000 монет / год", baseCost: 75000, income: 6000, icon: "🎸" },
-  { id: 4, name: "Кіоск з Шаурмою", desc: "+20,000 монет / год", baseCost: 300000, income: 20000, icon: "🌮" },
-  { id: 5, name: "Крипто-Ферма", desc: "+85,000 монет / год", baseCost: 1500000, income: 85000, icon: "💻" },
-  { id: 6, name: "Мережа Банків", desc: "+450,000 монет / год", baseCost: 10000000, income: 450000, icon: "🏦" },
-  { id: 7, name: "Качиний ШІ", desc: "+2,000,000 монет / год", baseCost: 50000000, income: 2000000, icon: "🤖" },
-  { id: 8, name: "Місія на Марс", desc: "+7,500,000 монет / год", baseCost: 250000000, income: 7500000, icon: "🚀" },
-  { id: 9, name: "Крипто-Біржа", desc: "+30,000,000 монет / год", baseCost: 1000000000, income: 30000000, icon: "📈", reqRefs: 3 },
-  { id: 10, name: "Телеканал", desc: "+150,000,000 монет / год", baseCost: 5000000000, income: 150000000, icon: "📺", reqRefs: 7 },
+  { id: 1, name: "Кіоск", desc: "+100 монет / год", baseCost: 1000, income: 100, icon: "🍞" },
+  { id: 2, name: "Кафе", desc: "+400 монет / год", baseCost: 5000, income: 400, icon: "🧢" },
+  { id: 3, name: "Ресторан", desc: "+800 монет / год", baseCost: 15000, income: 800, icon: "🎸" },
+  { id: 4, name: "Автомийка", desc: "+1,300 монет / год", baseCost: 35000, income: 1300, icon: "🌮" },
+  { id: 5, name: "Крипто-Ферма", desc: "+1,900 монет / год", baseCost: 80000, income: 1900, icon: "💻" },
+  { id: 6, name: "Мережа Банків", desc: "+2,600 монет / год", baseCost: 180000, income: 2600, icon: "🏦" },
+  { id: 7, name: "Качиний ШІ", desc: "+3,400 монет / год", baseCost: 400000, income: 3400, icon: "🤖" },
+  { id: 8, name: "Місія на Марс", desc: "+4,300 монет / год", baseCost: 850000, income: 4300, icon: "🚀" },
+  { id: 9, name: "Крипто-Біржа", desc: "+5,300 монет / год", baseCost: 1800000, income: 5300, icon: "📈", reqRefs: 3 },
+  { id: 10, name: "Телеканал", desc: "+6,500 монет / год", baseCost: 3800000, income: 6500, icon: "📺", reqRefs: 7 },
 ];
 
 // ==========================================
@@ -528,7 +531,6 @@ function App() {
       <div className="h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center select-none text-white z-[100] relative">
         <div className="flex flex-col items-center justify-center bg-gray-900 border border-gray-700 w-full max-w-sm rounded-3xl p-8 space-y-6 shadow-2xl animate-fade-in mb-10">
           
-          {/* 🔥 ТЕКСТ ЗМІНЕНО НА 20% 🔥 */}
           {onboardingStep === 0 && (
             <>
               <div className="text-7xl">🦆</div>
@@ -843,7 +845,6 @@ function App() {
           </div>
         )}
 
-        {/* 🔥 ОСЬ ТУТ ОНОВЛЕНО ТЕКСТ У ВКЛАДЦІ "ІНФО" НА 20% 🔥 */}
         {activeTab === 'info' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
             <h2 className="text-2xl font-black text-yellow-400 mb-4 text-center">ℹ️ Інфо та Правила</h2>

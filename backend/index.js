@@ -5,7 +5,7 @@ import { Sequelize, DataTypes, Op } from 'sequelize';
 import https from 'https';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import TelegramBot from 'node-telegram-bot-api'; // 🔥 ДОДАНО ДЛЯ БОТА
+import TelegramBot from 'node-telegram-bot-api'; 
 
 dotenv.config();
 
@@ -93,6 +93,8 @@ sequelize.sync({ alter: true }).then(() => console.log('✅ База даних 
 
 const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
 const MAX_ENERGY = 2000;
+
+// 🔥 3 години офлайн доходу
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
 
 const SHOP_ITEMS_DB = {
@@ -108,9 +110,9 @@ const token = process.env.BOT_TOKEN;
 
 if (token) {
   const bot = new TelegramBot(token, { polling: true });
-  const webAppUrl = 'https://duck-clicker-production.up.railway.app'; // Твоє посилання
+  const webAppUrl = 'https://duck-clicker-production.up.railway.app'; 
 
-  // Встановлюємо кнопку в меню чату (зліва від клавіатури)
+  // Встановлюємо кнопку в меню чату
   bot.setChatMenuButton({
     menu_button: {
       type: "web_app",
@@ -122,9 +124,8 @@ if (token) {
   // Обробка команди /start
   bot.onText(/\/start(?:\s+(.*))?/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const startParam = match[1] || ''; // Ловимо реферальний код, якщо він є
+    const startParam = match[1] || ''; 
 
-    // Формуємо фінальне посилання з рефералкою
     const finalUrl = startParam ? `${webAppUrl}?start_param=${startParam}` : webAppUrl;
 
     const text = `🦆 <b>Вітаємо у Gold Duck!</b>\n\nТисни на качку, збирай золоті монети, запрошуй друзів та змагайся з іншими гравцями!\n\nНатискай кнопку нижче, щоб почати гру 👇`;
@@ -134,7 +135,8 @@ if (token) {
       reply_markup: {
         inline_keyboard: [
           [{ text: "🎮 Відкрити гру", web_app: { url: finalUrl } }],
-          [{ text: "🌐 Наш канал", url: "https://t.me/YOUR_CHANNEL_LINK" }] // Зміни на посилання свого каналу, якщо треба
+          // 🔥 Твій канал вшито сюди
+          [{ text: "🌐 Наш канал", url: "https://t.me/GoldDuckTap" }] 
         ]
       }
     };
@@ -396,7 +398,9 @@ app.post('/api/user/tap', async (req, res) => {
     if (user.energy < actualTouches) return res.status(400).json({ error: 'Недостатньо енергії' });
     
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
-    const points_to_add = (user.level * (active_boost ? user.boost_multiplier : 1)) * actualTouches;
+    
+    // 🔥 БОСЕ, ТУТ ЗМІНЕНО: Додав множник * 2 до рівня
+    const points_to_add = (user.level * 2 * (active_boost ? user.boost_multiplier : 1)) * actualTouches;
     
     user.season_points = Number(user.season_points) + points_to_add; 
     user.total_earned = Number(user.total_earned) + points_to_add; 
@@ -695,7 +699,6 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
-// ЦЕЙ МАРШРУТ ЗАВЖДИ В САМОМУ КІНЦІ
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
     res.sendFile(path.join(__dirname, '../dist', 'index.html'));
