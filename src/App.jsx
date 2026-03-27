@@ -487,6 +487,17 @@ function App() {
     } catch (err) { tg.showAlert(err.response?.data?.error || "Помилка"); }
   };
 
+  const claimSocialTask = async (type, link) => {
+    if (userData[`task_${type}_claimed`]) return;
+    tg.openLink(link);
+    setTimeout(async () => {
+      try {
+        const response = await axios.post(`${SERVER_URL}/user/claim_task`, { telegram_id: userData.telegram_id, task_type: type });
+        setPoints(Number(response.data.user.season_points)); setTotalEarned(Number(response.data.user.total_earned)); setUserData(response.data.user); triggerNotification('success'); tg.showAlert(`Нагороду отримано! +${response.data.reward} 💰`);
+      } catch (err) { tg.showAlert("Спробуй ще раз."); }
+    }, 5000);
+  };
+
   const claimTelegramTask = async () => {
     if (userData.task_tg_claimed) return;
     tg.openTelegramLink(CHANNEL_URL);
@@ -572,6 +583,7 @@ function App() {
     );
   }
 
+  // 🔥 ОНОВЛЕНИЙ БЛОК ОНБОРДИНГУ 🔥
   if (showOnboarding) {
     return (
       <div className="h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center select-none text-white z-[100] relative">
@@ -586,9 +598,9 @@ function App() {
           )}
           {onboardingStep === 1 && (
             <>
-              <div className="text-7xl">💸</div>
-              <h2 className="text-2xl font-black text-green-400 leading-tight">Жодних Донатів!</h2>
-              <p className="text-gray-300 text-sm leading-relaxed px-2">Найголовніший донат — це твій час! Ти не платиш нічого, але маєш шанс виграти <span className="font-bold text-white">круті призи</span> щомісяця.</p>
+              <div className="text-7xl">📺</div>
+              <h2 className="text-2xl font-black text-green-400 leading-tight">Формуємо Банк!</h2>
+              <p className="text-gray-300 text-sm leading-relaxed px-2">Призи беруться з переглядів реклами! Чим більше відео-бустів ти дивишся, тим більший <span className="font-bold text-yellow-400">спільний куш</span> ми ділимо в кінці місяця. Більше реклами = більший виграш! 🚀</p>
             </>
           )}
           {onboardingStep === 2 && (
@@ -825,18 +837,9 @@ function App() {
               </div>
             </div>
 
-            {/* 🔥 СОЦМЕРЕЖІ: ЗАЛИШИВСЯ ТІЛЬКИ ТЕЛЕГРАМ 🔥 */}
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🌐 Соцмережі</h2>
             <div className="space-y-3 mb-6">
-              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-white text-sm">📣 Підписка Telegram</h3>
-                  <p className="text-[10px] text-yellow-400">+ 25 000</p>
-                </div>
-                <button onClick={claimTelegramTask} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_tg_claimed ? 'bg-gray-700 text-gray-500' : 'bg-blue-500 text-white active:scale-95'}`}>
-                  {userData.task_tg_claimed ? 'Виконано' : 'Підписатись'}
-                </button>
-              </div>
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between"><div><h3 className="font-bold text-white text-sm">📣 Підписка Telegram</h3><p className="text-[10px] text-yellow-400">+ 25 000</p></div><button onClick={claimTelegramTask} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_tg_claimed ? 'bg-gray-700 text-gray-500' : 'bg-blue-500 text-white active:scale-95'}`}>{userData.task_tg_claimed ? 'Виконано' : 'Підписатись'}</button></div>
             </div>
             
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🏆 Досягнення</h2>
