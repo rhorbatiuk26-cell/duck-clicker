@@ -380,7 +380,7 @@ function App() {
 
   const watchAdForBoost = (boostType) => {
     if (window.Adsgram) {
-      const AdController = window.Adsgram.init({ blockId: "25134" });
+      const AdController = window.Adsgram.init({ blockId: "26012" });
       AdController.show()
         .then(async () => {
           triggerNotification('success');
