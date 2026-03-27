@@ -98,10 +98,34 @@ const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 2500000
 const MAX_ENERGY = 1500;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
 
-const SHOP_ITEMS_DB = {
-  1: { reqRefs: 0 }, 2: { reqRefs: 0 }, 3: { reqRefs: 0 }, 4: { reqRefs: 0 }, 
-  5: { reqRefs: 0 }, 6: { reqRefs: 0 }, 7: { reqRefs: 0 }, 8: { reqRefs: 0 },
-  9: { reqRefs: 3 }, 10: { reqRefs: 7 } 
+// ==========================================
+// 🛡️ БАЗИ ДАНИХ ДЛЯ ЗАХИСТУ (СЕРВЕРНІ ЦІНИ)
+// ==========================================
+const SHOP_ITEMS_SERVER = {
+  1: { baseCost: 1000, income: 100, reqRefs: 0 },
+  2: { baseCost: 5000, income: 400, reqRefs: 0 },
+  3: { baseCost: 15000, income: 800, reqRefs: 0 },
+  4: { baseCost: 35000, income: 1300, reqRefs: 0 },
+  5: { baseCost: 80000, income: 1900, reqRefs: 0 },
+  6: { baseCost: 180000, income: 2600, reqRefs: 0 },
+  7: { baseCost: 400000, income: 3400, reqRefs: 0 },
+  8: { baseCost: 850000, income: 4300, reqRefs: 0 },
+  9: { baseCost: 1800000, income: 5300, reqRefs: 3 },
+  10: { baseCost: 3800000, income: 6500, reqRefs: 7 }
+};
+
+const ACHIEVEMENTS_SERVER = {
+  'first_10k': { reward: 5000 },
+  'lvl3': { reward: 25000 },
+  'ref_3': { reward: 200000 },
+  'ref_10': { reward: 1000000 },
+  'ref_20': { reward: 5000000 }
+};
+
+const SKINS_SERVER = {
+  'cool': 5000000,
+  'rich': 10000000,
+  'default': 0
 };
 
 // ==========================================
@@ -519,18 +543,21 @@ app.post('/api/squad/join', async (req, res) => {
   }
 });
 
+// 🛡️ ЗАХИЩЕНА ПОКУПКА СКІНІВ 
 app.post('/api/user/buy_skin', async (req, res) => {
-  const { telegram_id, skin_id, cost } = req.body;
+  const { telegram_id, skin_id } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
     await calculateOfflineProgress(user);
+    
+    const realCost = SKINS_SERVER[skin_id] !== undefined ? SKINS_SERVER[skin_id] : 999999999;
     
     let skins = user.unlocked_skins || ['default'];
     if (skins.includes(skin_id)) {
       user.current_skin = skin_id;
     } else { 
-      if (user.season_points < cost) return res.status(400).json({ error: 'Недостатньо монет' }); 
-      user.season_points = Number(user.season_points) - cost; 
+      if (user.season_points < realCost) return res.status(400).json({ error: 'Недостатньо монет' }); 
+      user.season_points = Number(user.season_points) - realCost; 
       skins.push(skin_id); 
       user.unlocked_skins = skins; 
       user.current_skin = skin_id; 
@@ -542,23 +569,31 @@ app.post('/api/user/buy_skin', async (req, res) => {
   }
 });
 
+// 🛡️ ЗАХИЩЕНА ПОКУПКА БІЗНЕСІВ
 app.post('/api/user/buy_upgrade', async (req, res) => {
-  const { telegram_id, item_id, cost, income_increase } = req.body;
+  const { telegram_id, item_id } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
     await calculateOfflineProgress(user);
     
-    if (user.season_points < cost) return res.status(400).json({ error: 'Недостатньо монет' });
-    const requiredRefs = SHOP_ITEMS_DB[item_id]?.reqRefs || 0;
+    const itemData = SHOP_ITEMS_SERVER[item_id];
+    if (!itemData) return res.status(400).json({ error: 'Невідомий товар' });
+
+    const ownedCount = user.businesses ? (user.businesses[item_id] || 0) : 0;
+    const realCost = Math.floor(itemData.baseCost * Math.pow(1.3, ownedCount));
+    const realIncome = itemData.income;
+    const requiredRefs = itemData.reqRefs;
+    
+    if (user.season_points < realCost) return res.status(400).json({ error: 'Недостатньо монет' });
     if (user.referrals_count < requiredRefs) { 
-      return res.status(400).json({ error: `Треба запросити ще активних друзів. Мінімум: ${requiredRefs}` }); 
+      return res.status(400).json({ error: `Потрібно друзів: ${requiredRefs}` }); 
     }
     
-    user.season_points = Number(user.season_points) - cost; 
-    user.passive_income += income_increase; 
+    user.season_points = Number(user.season_points) - realCost; 
+    user.passive_income += realIncome; 
     
     let biz = user.businesses || {}; 
-    biz[item_id] = (biz[item_id] || 0) + 1; 
+    biz[item_id] = ownedCount + 1; 
     user.businesses = biz; 
     user.changed('businesses', true); 
     user.last_passive_collect = new Date(); 
@@ -569,12 +604,17 @@ app.post('/api/user/buy_upgrade', async (req, res) => {
   }
 });
 
+// 🛡️ ЗАХИЩЕНЕ ОТРИМАННЯ ДОСЯГНЕНЬ
 app.post('/api/user/achievement', async (req, res) => {
-  const { telegram_id, achievement_id, reward } = req.body;
+  const { telegram_id, achievement_id } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
     await calculateOfflineProgress(user);
     
+    const achData = ACHIEVEMENTS_SERVER[achievement_id];
+    if (!achData) return res.status(400).json({ error: 'Невідоме досягнення' });
+    const realReward = achData.reward;
+
     let achs = user.achievements || [];
     if (achs.includes(achievement_id)) return res.status(400).json({ error: 'Вже отримано' });
     
@@ -584,8 +624,8 @@ app.post('/api/user/achievement', async (req, res) => {
     
     achs.push(achievement_id); 
     user.achievements = achs; 
-    user.season_points = Number(user.season_points) + reward; 
-    user.total_earned = Number(user.total_earned) + reward; 
+    user.season_points = Number(user.season_points) + realReward; 
+    user.total_earned = Number(user.total_earned) + realReward; 
     
     let new_level = 1; 
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { 
@@ -593,20 +633,19 @@ app.post('/api/user/achievement', async (req, res) => {
     }
     user.level = new_level > 10 ? 10 : new_level; 
     await user.save(); 
-    return res.json({ user: user.get(), reward });
+    return res.json({ user: user.get(), reward: realReward });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
   }
 });
 
-// 🔥 ОСЬ ТЕ САМЕ ВИПРАВЛЕНЕ МІСЦЕ (ЗАХИСТ ВІД СПАМУ) 🔥
+// 🛡️ ЗАХИСТ ВІД СПАМУ ТА ПРАВИЛЬНА ПЕРЕВІРКА ПІДПИСКИ
 app.post('/api/user/claim_task', async (req, res) => {
   const { telegram_id, task_type } = req.body;
   try {
     const user = await User.findByPk(String(telegram_id));
     if (!user) return res.status(404).json({ error: 'Not found' });
 
-    // 🔒 Залізний замок: Перевіряємо, чи завдання ВЖЕ виконано!
     if (user[`task_${task_type}_claimed`]) {
       return res.status(400).json({ error: 'Вже виконано' });
     }
@@ -619,12 +658,10 @@ app.post('/api/user/claim_task', async (req, res) => {
       if (!isSubscribed) return res.status(400).json({ error: 'not_subscribed' }); 
     }
     
-    // ✅ Ставимо галочку, що завдання виконано, щоб більше не нараховувати
     user[`task_${task_type}_claimed`] = true; 
     user.season_points = Number(user.season_points) + reward; 
     user.total_earned = Number(user.total_earned) + reward;
     
-    // Перерахунок рівня
     let new_level = 1; 
     for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { 
       if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } 
