@@ -97,7 +97,6 @@ const DAILY_REWARDS = [
   { day: 7, amount: 0, label: '🔥 24г x2' }
 ];
 
-// 🔥 Форматувальник чисел (наприклад 5000 -> 5 000)
 const formatNum = (num) => new Intl.NumberFormat('ru-RU').format(Math.floor(num));
 
 // ==========================================
@@ -260,7 +259,6 @@ function App() {
     let totalIncomePerHour = passiveIncome;
     let addedPerSec = totalIncomePerHour / 3600;
     
-    // Автоклікер тепер теж розумний
     if (userData?.auto_click) {
       const smart_tap_base = (level * 2) + Math.floor(addedPerSec * 3);
       addedPerSec += (smart_tap_base * 5); 
@@ -309,7 +307,7 @@ function App() {
   }, []);
 
   // ==========================================
-  // КЛІК ПО КАЧЦІ (РОЗУМНИЙ ТАП)
+  // КЛІК ПО КАЧЦІ
   // ==========================================
 
   const handleTap = (e) => {
@@ -324,7 +322,6 @@ function App() {
     if (userData.active_daily_x2) current_mult = 2; 
     if (userData.active_boost) current_mult = userData.boost_multiplier; 
 
-    // 🔥 Розумний тап (на фронтенді для анімації)
     const passive_per_sec = passiveIncome / 3600;
     const smart_tap_base = (level * 2) + Math.floor(passive_per_sec * 3);
     const tapValue = smart_tap_base * current_mult;
@@ -486,19 +483,8 @@ function App() {
     triggerNotification('success');
     try {
       const res = await axios.post(`${SERVER_URL}/user/achievement`, { telegram_id: userData.telegram_id, achievement_id: id, reward });
-      setUserData(res.data.user); setPoints(Number(res.data.user.season_points)); setTotalEarned(Number(res.data.user.total_earned)); tg.showAlert(`Досягнення отримано! +${reward} 💰`);
+      setUserData(res.data.user); setPoints(Number(res.data.user.season_points)); setTotalEarned(Number(res.data.user.total_earned)); tg.showAlert(`Досягнення отримано! +${formatNum(reward)} 💰`);
     } catch (err) { tg.showAlert(err.response?.data?.error || "Помилка"); }
-  };
-
-  const claimSocialTask = async (type, link) => {
-    if (userData[`task_${type}_claimed`]) return;
-    tg.openLink(link);
-    setTimeout(async () => {
-      try {
-        const response = await axios.post(`${SERVER_URL}/user/claim_task`, { telegram_id: userData.telegram_id, task_type: type });
-        setPoints(Number(response.data.user.season_points)); setTotalEarned(Number(response.data.user.total_earned)); setUserData(response.data.user); triggerNotification('success'); tg.showAlert(`Нагороду отримано! +${response.data.reward} 💰`);
-      } catch (err) { tg.showAlert("Спробуй ще раз."); }
-    }, 5000);
   };
 
   const claimTelegramTask = async () => {
@@ -642,7 +628,6 @@ function App() {
     "from-yellow-600 to-red-900"
   ];
 
-  // Динамічний магніт для UI
   const dynamicMagnetValue = Math.max(5000, passiveIncome * 2);
 
   return (
@@ -774,15 +759,13 @@ function App() {
         {activeTab === 'tasks' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
             
-            <div className="bg-gray-800 border border-gray-700 p-5 rounded-3xl mb-6 shadow-xl relative overflow-hidden">
-              <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-yellow-500/20 rounded-full blur-[50px] pointer-events-none"></div>
-              
-              <h2 className="text-xl font-black text-white mb-1 text-center flex justify-center items-center gap-2">
+            <div className="bg-gray-800 border border-gray-700 p-5 rounded-3xl mb-6 shadow-xl relative">
+              <h2 className="text-xl font-black text-white mb-2 text-center flex justify-center items-center gap-2">
                 <span>📅</span> Щоденний бонус
               </h2>
               <p className="text-[11px] text-gray-400 text-center mb-5">Заходь щодня без перерви, щоб забрати головний приз!</p>
               
-              <div className="grid grid-cols-4 gap-2 mb-5 relative z-10">
+              <div className="grid grid-cols-4 gap-2 mb-5">
                 {DAILY_REWARDS.map((reward, index) => {
                   const streak = userData?.daily_streak || 0;
                   const isReadyToClaim = dailyAvailable && (streak === index || (streak === 7 && index === 6));
@@ -813,7 +796,7 @@ function App() {
               </div>
 
               {!dailyAvailable && (
-                <div className="text-center bg-gray-900/80 rounded-2xl py-3 border border-gray-700 relative z-10 flex flex-col items-center justify-center">
+                <div className="text-center bg-gray-900/80 rounded-2xl py-3 border border-gray-700 relative flex flex-col items-center justify-center">
                   <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Наступна нагорода через</span>
                   <div className="flex items-center gap-1 text-2xl font-black text-yellow-400 font-mono tracking-wider">
                     <span>⏳</span> {timeToNextDay}
@@ -842,10 +825,18 @@ function App() {
               </div>
             </div>
 
+            {/* 🔥 СОЦМЕРЕЖІ: ЗАЛИШИВСЯ ТІЛЬКИ ТЕЛЕГРАМ 🔥 */}
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🌐 Соцмережі</h2>
             <div className="space-y-3 mb-6">
-              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between"><div><h3 className="font-bold text-white text-sm">📣 Підписка Telegram</h3><p className="text-[10px] text-yellow-400">+ 25 000</p></div><button onClick={claimTelegramTask} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_tg_claimed ? 'bg-gray-700 text-gray-500' : 'bg-blue-500 text-white active:scale-95'}`}>{userData.task_tg_claimed ? 'Виконано' : 'Підписатись'}</button></div>
-              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between"><div><h3 className="font-bold text-white text-sm">✖️ Підписка на X</h3><p className="text-[10px] text-yellow-400">+ 10 000</p></div><button onClick={() => claimSocialTask('x', 'https://twitter.com/')} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_x_claimed ? 'bg-gray-700 text-gray-500' : 'bg-gray-600 text-white active:scale-95'}`}>{userData.task_x_claimed ? 'Виконано' : 'Перейти'}</button></div>
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-white text-sm">📣 Підписка Telegram</h3>
+                  <p className="text-[10px] text-yellow-400">+ 25 000</p>
+                </div>
+                <button onClick={claimTelegramTask} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_tg_claimed ? 'bg-gray-700 text-gray-500' : 'bg-blue-500 text-white active:scale-95'}`}>
+                  {userData.task_tg_claimed ? 'Виконано' : 'Підписатись'}
+                </button>
+              </div>
             </div>
             
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🏆 Досягнення</h2>
@@ -854,7 +845,8 @@ function App() {
                 { id: 'first_10k', name: 'Назбирай 10,000 монет', type: 'points', goal: 10000, reward: 5000 },
                 { id: 'lvl3', name: 'Досягни 3 рівня', type: 'level', goal: 3, reward: 25000 },
                 { id: 'ref_3', name: 'Запроси 3 друзів', type: 'refs', goal: 3, reward: 200000 },
-                { id: 'ref_10', name: 'Запроси 10 друзів', type: 'refs', goal: 10, reward: 1000000 }
+                { id: 'ref_10', name: 'Запроси 10 друзів', type: 'refs', goal: 10, reward: 1000000 },
+                { id: 'ref_20', name: 'Запроси 20 друзів', type: 'refs', goal: 20, reward: 5000000 }
               ].map(ach => {
                 const isDone = userData.achievements?.includes(ach.id);
                 return (

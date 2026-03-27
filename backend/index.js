@@ -210,13 +210,11 @@ const calculateOfflineProgress = async (user) => {
   }
   
   let passiveEarned = 0;
-  
-  // 🔥 АВТОКЛІКЕР ТЕПЕР ТЕЖ ДИНАМІЧНИЙ
   let currentPassivePerSec = user.passive_income / 3600;
   
   if (user.auto_click_until && new Date(user.auto_click_until) > now) {
     const smart_tap_base = (user.level * 2) + Math.floor(currentPassivePerSec * 3);
-    currentPassivePerSec += (smart_tap_base * 5); // Автоклікер тапає 5 разів на секунду силою розумного тапу!
+    currentPassivePerSec += (smart_tap_base * 5); 
   }
   
   if (currentPassivePerSec > 0) {
@@ -406,9 +404,8 @@ app.post('/api/user/tap', async (req, res) => {
     if (active_daily_x2) current_mult = 2; 
     if (active_boost) current_mult = user.boost_multiplier; 
     
-    // 🔥 РОЗУМНИЙ ТАП (ДИНАМІЧНИЙ)
     const passive_per_sec = user.passive_income / 3600;
-    const smart_tap_base = (user.level * 2) + Math.floor(passive_per_sec * 3); // Рівень*2 + пасив за 3 секунди
+    const smart_tap_base = (user.level * 2) + Math.floor(passive_per_sec * 3); 
     
     const points_to_add = (smart_tap_base * current_mult) * actualTouches;
     
@@ -460,14 +457,13 @@ app.post('/api/user/ad_boost', async (req, res) => {
     } else if (boost_type === 'autoclick') { 
       if (user.ad_autoclick_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
       if (user.ad_autoclick_ready_at && new Date(user.ad_autoclick_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
-      if (!fallback) { user.auto_click_until = new Date(now.getTime() + 3 * 60 * 1000); } // 3 хвилини турбо-автоклікера
+      if (!fallback) { user.auto_click_until = new Date(now.getTime() + 3 * 60 * 1000); }
       user.ad_autoclick_left -= 1; 
       user.ad_autoclick_ready_at = cooldownEnd;
     } else if (boost_type === 'magnet') { 
       if (user.ad_magnet_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
       if (user.ad_magnet_ready_at && new Date(user.ad_magnet_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
       
-      // 🔥 ДИНАМІЧНИЙ МАГНІТ (Дохід за 2 години, але мінімум 5000)
       const magnetReward = Math.max(5000, user.passive_income * 2);
       
       if (!fallback) { 
@@ -481,7 +477,6 @@ app.post('/api/user/ad_boost', async (req, res) => {
     }
 
     if (fallback) {
-      // Якщо реклама впала, даємо втішний приз (дохід за півгодини)
       const fallbackReward = Math.max(1500, Math.floor(user.passive_income * 0.5));
       user.season_points = Number(user.season_points) + fallbackReward;
       user.total_earned = Number(user.total_earned) + fallbackReward;
@@ -582,9 +577,10 @@ app.post('/api/user/achievement', async (req, res) => {
     
     let achs = user.achievements || [];
     if (achs.includes(achievement_id)) return res.status(400).json({ error: 'Вже отримано' });
+    
     if (achievement_id === 'ref_3' && user.referrals_count < 3) return res.status(400).json({ error: 'Недостатньо друзів' });
     if (achievement_id === 'ref_10' && user.referrals_count < 10) return res.status(400).json({ error: 'Недостатньо друзів' });
-    if (achievement_id === 'ref_50' && user.referrals_count < 50) return res.status(400).json({ error: 'Недостатньо друзів' });
+    if (achievement_id === 'ref_20' && user.referrals_count < 20) return res.status(400).json({ error: 'Недостатньо друзів' });
     
     achs.push(achievement_id); 
     user.achievements = achs; 
