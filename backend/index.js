@@ -599,6 +599,45 @@ app.post('/api/user/achievement', async (req, res) => {
   }
 });
 
+// 🔥 ОСЬ ТЕ САМЕ ВИПРАВЛЕНЕ МІСЦЕ (ЗАХИСТ ВІД СПАМУ) 🔥
+app.post('/api/user/claim_task', async (req, res) => {
+  const { telegram_id, task_type } = req.body;
+  try {
+    const user = await User.findByPk(String(telegram_id));
+    if (!user) return res.status(404).json({ error: 'Not found' });
+
+    // 🔒 Залізний замок: Перевіряємо, чи завдання ВЖЕ виконано!
+    if (user[`task_${task_type}_claimed`]) {
+      return res.status(400).json({ error: 'Вже виконано' });
+    }
+    
+    let reward = 10000; 
+    
+    if (task_type === 'tg') {  
+      reward = 25000; 
+      const isSubscribed = await checkTelegramSubscription(telegram_id); 
+      if (!isSubscribed) return res.status(400).json({ error: 'not_subscribed' }); 
+    }
+    
+    // ✅ Ставимо галочку, що завдання виконано, щоб більше не нараховувати
+    user[`task_${task_type}_claimed`] = true; 
+    user.season_points = Number(user.season_points) + reward; 
+    user.total_earned = Number(user.total_earned) + reward;
+    
+    // Перерахунок рівня
+    let new_level = 1; 
+    for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { 
+      if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } 
+    }
+    user.level = new_level > 10 ? 10 : new_level; 
+    
+    await user.save(); 
+    return res.json({ user: user.get(), reward });
+  } catch (err) { 
+    res.status(500).json({ error: 'Server error' }); 
+  }
+});
+
 app.post('/api/user/daily', async (req, res) => {
   const { telegram_id } = req.body;
   try {
@@ -626,37 +665,6 @@ app.post('/api/user/daily', async (req, res) => {
     const active_daily_x2 = user.daily_x2_until && new Date(user.daily_x2_until) > new Date();
     res.json({ user: { ...user.get(), active_daily_x2 }, reward: rewardMsg });
   } catch (error) { 
-    res.status(500).json({ error: 'Server error' }); 
-  }
-});
-
-app.post('/api/user/claim_task', async (req, res) => {
-  const { telegram_id, task_type } = req.body;
-  try {
-    const user = await User.findByPk(String(telegram_id));
-    if (!user) return res.status(404).json({ error: 'Not found' });
-    if (user[`task_${task_type}_claimed`]) return res.status(400).json({ error: 'Вже виконано' });
-    
-    let reward = 10000; 
-    if (task_type === 'telegram') { 
-      reward = 25000; 
-      const isSubscribed = await checkTelegramSubscription(telegram_id); 
-      if (!isSubscribed) return res.status(400).json({ error: 'not_subscribed' }); 
-    }
-    
-    user[`task_${task_type}_claimed`] = true; 
-    user.season_points = Number(user.season_points) + reward; 
-    user.total_earned = Number(user.total_earned) + reward;
-    
-    let new_level = 1; 
-    for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { 
-      if (user.total_earned >= LEVEL_THRESHOLDS[i]) { new_level = i + 1; break; } 
-    }
-    user.level = new_level > 10 ? 10 : new_level; 
-    
-    await user.save(); 
-    return res.json({ user: user.get(), reward });
-  } catch (err) { 
     res.status(500).json({ error: 'Server error' }); 
   }
 });

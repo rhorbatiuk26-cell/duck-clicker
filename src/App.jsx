@@ -498,12 +498,13 @@ function App() {
     }, 5000);
   };
 
+  // 🔥 ОСЬ ВИПРАВЛЕНА ФУНКЦІЯ ТА КНОПКА (ЗАХИСТ ВІД СПАМУ ТА ЗМІНА tg) 🔥
   const claimTelegramTask = async () => {
     if (userData.task_tg_claimed) return;
     tg.openTelegramLink(CHANNEL_URL);
     setTimeout(async () => {
       try {
-        const response = await axios.post(`${SERVER_URL}/user/claim_task`, { telegram_id: userData.telegram_id, task_type: 'telegram' });
+        const response = await axios.post(`${SERVER_URL}/user/claim_task`, { telegram_id: userData.telegram_id, task_type: 'tg' });
         setPoints(Number(response.data.user.season_points)); setTotalEarned(Number(response.data.user.total_earned)); setUserData(response.data.user); triggerNotification('success'); tg.showAlert("Дякуємо за підписку! Нараховано +25,000 монет 💰");
       } catch (err) { if (err.response?.data?.error === 'not_subscribed') { tg.showAlert("⚠️ Ти ще не підписався на канал!"); } }
     }, 5000);
@@ -583,7 +584,6 @@ function App() {
     );
   }
 
-  // 🔥 ОНОВЛЕНИЙ БЛОК ОНБОРДИНГУ 🔥
   if (showOnboarding) {
     return (
       <div className="h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center select-none text-white z-[100] relative">
@@ -839,7 +839,20 @@ function App() {
 
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🌐 Соцмережі</h2>
             <div className="space-y-3 mb-6">
-              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between"><div><h3 className="font-bold text-white text-sm">📣 Підписка Telegram</h3><p className="text-[10px] text-yellow-400">+ 25 000</p></div><button onClick={claimTelegramTask} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_tg_claimed ? 'bg-gray-700 text-gray-500' : 'bg-blue-500 text-white active:scale-95'}`}>{userData.task_tg_claimed ? 'Виконано' : 'Підписатись'}</button></div>
+              {/* 🔥 ОСЬ ВИПРАВЛЕНА КНОПКА ПІДПИСКИ 🔥 */}
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-white text-sm">📣 Підписка Telegram</h3>
+                  <p className="text-[10px] text-yellow-400">+ 25 000</p>
+                </div>
+                <button 
+                  disabled={userData.task_tg_claimed} 
+                  onClick={claimTelegramTask} 
+                  className={`text-xs font-bold py-2 px-4 rounded-xl transition-all ${userData.task_tg_claimed ? 'bg-gray-900 text-gray-500 border border-gray-700' : 'bg-blue-500 text-white active:scale-95'}`}
+                >
+                  {userData.task_tg_claimed ? '✅ Виконано' : 'Підписатись'}
+                </button>
+              </div>
             </div>
             
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🏆 Досягнення</h2>
