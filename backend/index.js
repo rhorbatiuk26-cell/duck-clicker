@@ -193,7 +193,9 @@ const endSeasonAndNotify = async () => {
     });
     
     await sendTelegramMessage(adminId, msg);
-    await User.update({ season_points: 0, total_earned: 0, level: 1, energy: MAX_ENERGY, passive_income: 0, businesses: {} }, { where: {} });
+    
+    // 🔥 ОНОВЛЕНО: Тепер ми також обнуляємо досягнення (achievements: [])
+    await User.update({ season_points: 0, total_earned: 0, level: 1, energy: MAX_ENERGY, passive_income: 0, businesses: {}, achievements: [] }, { where: {} });
     await Squad.update({ total_points: 0 }, { where: {} });
     return { success: true };
   } catch (error) { 
@@ -560,6 +562,7 @@ app.post('/api/user/buy_skin', async (req, res) => {
       user.season_points = Number(user.season_points) - realCost; 
       skins.push(skin_id); 
       user.unlocked_skins = skins; 
+      user.changed('unlocked_skins', true); // 🔥 ФІКС ЗБЕРЕЖЕННЯ В БД
       user.current_skin = skin_id; 
     }
     await user.save(); 
@@ -624,6 +627,8 @@ app.post('/api/user/achievement', async (req, res) => {
     
     achs.push(achievement_id); 
     user.achievements = achs; 
+    user.changed('achievements', true); // 🔥 ФІКС ЗБЕРЕЖЕННЯ В БД
+    
     user.season_points = Number(user.season_points) + realReward; 
     user.total_earned = Number(user.total_earned) + realReward; 
     
