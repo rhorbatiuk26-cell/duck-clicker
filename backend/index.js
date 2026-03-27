@@ -61,8 +61,8 @@ const User = sequelize.define('User', {
   boost_until: { type: DataTypes.DATE, allowNull: true },
   boost_multiplier: { type: DataTypes.INTEGER, defaultValue: 1 },
   auto_click_until: { type: DataTypes.DATE, allowNull: true },
+  daily_x2_until: { type: DataTypes.DATE, allowNull: true },
   
-  // 🔥 Енергія зменшена до 1500
   energy: { type: DataTypes.INTEGER, defaultValue: 1500 },
   last_energy_update: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   
@@ -95,7 +95,6 @@ sequelize.sync({ alter: true }).then(() => console.log('✅ База даних 
 
 const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
 
-// 🔥 Максимальна енергія 1500
 const MAX_ENERGY = 1500;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
 
@@ -211,10 +210,13 @@ const calculateOfflineProgress = async (user) => {
   }
   
   let passiveEarned = 0;
+  
+  // 🔥 АВТОКЛІКЕР ТЕПЕР ТЕЖ ДИНАМІЧНИЙ
   let currentPassivePerSec = user.passive_income / 3600;
   
   if (user.auto_click_until && new Date(user.auto_click_until) > now) {
-    currentPassivePerSec += (7 * user.level);
+    const smart_tap_base = (user.level * 2) + Math.floor(currentPassivePerSec * 3);
+    currentPassivePerSec += (smart_tap_base * 5); // Автоклікер тапає 5 разів на секунду силою розумного тапу!
   }
   
   if (currentPassivePerSec > 0) {
@@ -321,8 +323,9 @@ app.post('/api/user/init', async (req, res) => {
     
     const active_boost = progress.user.boost_until && new Date(progress.user.boost_until) > new Date();
     const auto_click = progress.user.auto_click_until && new Date(progress.user.auto_click_until) > new Date();
+    const active_daily_x2 = progress.user.daily_x2_until && new Date(progress.user.daily_x2_until) > new Date();
     
-    res.json({ user: { ...progress.user.get(), active_boost, auto_click }, offline_earned: progress.passiveEarned, daily_available: progress.dailyAvailable });
+    res.json({ user: { ...progress.user.get(), active_boost, auto_click, active_daily_x2 }, offline_earned: progress.passiveEarned, daily_available: progress.dailyAvailable });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
   }
@@ -386,9 +389,6 @@ app.post('/api/user/claim_ref_reward', async (req, res) => {
 
 app.post('/api/user/tap', async (req, res) => {
   const { telegram_id, count = 1 } = req.body;
-  
-  // 🔥 ВИРІШЕННЯ ПРОБЛЕМИ "ПРИМАРНИХ" МОНЕТ!
-  // Беремо всю пачку тапів (але не більше 500 за раз для захисту від ботів)
   let actualTouches = Math.min(Number(count) || 1, 500);
   
   try {
@@ -396,13 +396,21 @@ app.post('/api/user/tap', async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Not found' });
     await calculateOfflineProgress(user);
     
-    // Якщо енергії менше, ніж гравець натапав - просто беремо те, що залишилось, а не блокуємо запит!
     actualTouches = Math.min(actualTouches, user.energy);
     if (actualTouches <= 0) return res.status(400).json({ error: 'Недостатньо енергії' });
     
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
+    const active_daily_x2 = user.daily_x2_until && new Date(user.daily_x2_until) > new Date();
     
-    const points_to_add = (user.level * 2 * (active_boost ? user.boost_multiplier : 1)) * actualTouches;
+    let current_mult = 1;
+    if (active_daily_x2) current_mult = 2; 
+    if (active_boost) current_mult = user.boost_multiplier; 
+    
+    // 🔥 РОЗУМНИЙ ТАП (ДИНАМІЧНИЙ)
+    const passive_per_sec = user.passive_income / 3600;
+    const smart_tap_base = (user.level * 2) + Math.floor(passive_per_sec * 3); // Рівень*2 + пасив за 3 секунди
+    
+    const points_to_add = (smart_tap_base * current_mult) * actualTouches;
     
     user.season_points = Number(user.season_points) + points_to_add; 
     user.total_earned = Number(user.total_earned) + points_to_add; 
@@ -421,7 +429,7 @@ app.post('/api/user/tap', async (req, res) => {
     }
     
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > new Date();
-    res.json({ user: { ...user.get(), active_boost, auto_click } });
+    res.json({ user: { ...user.get(), active_boost, auto_click, active_daily_x2 } });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
   }
@@ -452,13 +460,20 @@ app.post('/api/user/ad_boost', async (req, res) => {
     } else if (boost_type === 'autoclick') { 
       if (user.ad_autoclick_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
       if (user.ad_autoclick_ready_at && new Date(user.ad_autoclick_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
-      if (!fallback) { user.auto_click_until = new Date(now.getTime() + 3 * 60 * 1000); }
+      if (!fallback) { user.auto_click_until = new Date(now.getTime() + 3 * 60 * 1000); } // 3 хвилини турбо-автоклікера
       user.ad_autoclick_left -= 1; 
       user.ad_autoclick_ready_at = cooldownEnd;
     } else if (boost_type === 'magnet') { 
       if (user.ad_magnet_left <= 0) return res.status(400).json({ error: 'Ліміт вичерпано (0/3)' });
       if (user.ad_magnet_ready_at && new Date(user.ad_magnet_ready_at) > now) return res.status(429).json({ error: 'Ще на перезарядці!' });
-      if (!fallback) { user.season_points = Number(user.season_points) + 5000; user.total_earned = Number(user.total_earned) + 5000; }
+      
+      // 🔥 ДИНАМІЧНИЙ МАГНІТ (Дохід за 2 години, але мінімум 5000)
+      const magnetReward = Math.max(5000, user.passive_income * 2);
+      
+      if (!fallback) { 
+        user.season_points = Number(user.season_points) + magnetReward; 
+        user.total_earned = Number(user.total_earned) + magnetReward; 
+      }
       user.ad_magnet_left -= 1; 
       user.ad_magnet_ready_at = cooldownEnd;
     } else {
@@ -466,8 +481,10 @@ app.post('/api/user/ad_boost', async (req, res) => {
     }
 
     if (fallback) {
-      user.season_points = Number(user.season_points) + 1500;
-      user.total_earned = Number(user.total_earned) + 1500;
+      // Якщо реклама впала, даємо втішний приз (дохід за півгодини)
+      const fallbackReward = Math.max(1500, Math.floor(user.passive_income * 0.5));
+      user.season_points = Number(user.season_points) + fallbackReward;
+      user.total_earned = Number(user.total_earned) + fallbackReward;
     }
 
     let new_level = 1; 
@@ -479,7 +496,8 @@ app.post('/api/user/ad_boost', async (req, res) => {
     
     const active_boost = user.boost_until && new Date(user.boost_until) > now;
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
-    res.json({ user: { ...user.get(), active_boost, auto_click } });
+    const active_daily_x2 = user.daily_x2_until && new Date(user.daily_x2_until) > now;
+    res.json({ user: { ...user.get(), active_boost, auto_click, active_daily_x2 } });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
   }
@@ -593,12 +611,24 @@ app.post('/api/user/daily', async (req, res) => {
     if (!progress.dailyAvailable) return res.status(400).json({ error: 'Вже отримано' });
     
     user.daily_streak = Math.min((user.daily_streak || 0) + 1, 7);
-    const bonusAmounts = [0, 500, 1000, 2500, 5000, 15000, 30000, 100000];
-    user.season_points = Number(user.season_points) + bonusAmounts[user.daily_streak]; 
-    user.total_earned = Number(user.total_earned) + bonusAmounts[user.daily_streak];
+    
+    let rewardMsg = '';
+    if (user.daily_streak === 7) {
+      const now = new Date();
+      user.daily_x2_until = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      rewardMsg = '24h_x2';
+    } else {
+      const bonusAmounts = [0, 500, 1000, 2500, 5000, 15000, 20000];
+      user.season_points = Number(user.season_points) + bonusAmounts[user.daily_streak]; 
+      user.total_earned = Number(user.total_earned) + bonusAmounts[user.daily_streak];
+      rewardMsg = String(bonusAmounts[user.daily_streak]);
+    }
+    
     user.last_daily_claim = new Date(); 
     await user.save(); 
-    res.json({ user: user.get(), reward: bonusAmounts[user.daily_streak] });
+    
+    const active_daily_x2 = user.daily_x2_until && new Date(user.daily_x2_until) > new Date();
+    res.json({ user: { ...user.get(), active_daily_x2 }, reward: rewardMsg });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
   }
@@ -648,7 +678,8 @@ app.post('/api/user/reset', async (req, res) => {
     user.last_daily_claim = null; 
     user.free_energy_refills = 3; 
     user.boost_until = null; 
-    user.auto_click_until = null; 
+    user.auto_click_until = null;
+    user.daily_x2_until = null; 
     user.achievements = []; 
     user.unlocked_skins = ['default']; 
     user.current_skin = 'default'; 

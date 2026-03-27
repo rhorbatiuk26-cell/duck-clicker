@@ -24,7 +24,6 @@ const LEVEL_THRESHOLDS = [
   100000000000
 ];
 
-// 🔥 Максимальна енергія 1500
 const MAX_ENERGY = 1500;
 
 const levelNames = [
@@ -88,6 +87,19 @@ const SHOP_ITEMS = [
   { id: 10, name: "Телеканал", desc: "+6,500 монет / год", baseCost: 3800000, income: 6500, icon: "📺", reqRefs: 7 },
 ];
 
+const DAILY_REWARDS = [
+  { day: 1, amount: 500, label: '500' },
+  { day: 2, amount: 1000, label: '1k' },
+  { day: 3, amount: 2500, label: '2.5k' },
+  { day: 4, amount: 5000, label: '5k' },
+  { day: 5, amount: 15000, label: '15k' },
+  { day: 6, amount: 20000, label: '20k' },
+  { day: 7, amount: 0, label: '🔥 24г x2' }
+];
+
+// 🔥 Форматувальник чисел (наприклад 5000 -> 5 000)
+const formatNum = (num) => new Intl.NumberFormat('ru-RU').format(Math.floor(num));
+
 // ==========================================
 // ГОЛОВНИЙ КОМПОНЕНТ
 // ==========================================
@@ -117,7 +129,7 @@ function App() {
   const [hapticEnabled, setHapticEnabled] = useState(() => localStorage.getItem('haptic_enabled') !== 'false');
 
   const [dailyAvailable, setDailyAvailable] = useState(false);
-  const [showDailyModal, setShowDailyModal] = useState(false);
+  const [timeToNextDay, setTimeToNextDay] = useState('00:00:00');
   const [offlineEarned, setOfflineEarned] = useState(0);
 
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('onboarding_done'));
@@ -166,7 +178,7 @@ function App() {
   };
 
   // ==========================================
-  // ІНІЦІАЛІЗАЦІЯ
+  // ІНІЦІАЛІЗАЦІЯ ТА ТАЙМЕРИ
   // ==========================================
 
   useEffect(() => {
@@ -197,7 +209,6 @@ function App() {
 
         if (data.daily_available) {
           setDailyAvailable(true);
-          if (!showOnboarding) setShowDailyModal(true);
         }
       } catch (err) {
         console.error("Init Error:", err);
@@ -206,6 +217,24 @@ function App() {
 
     fetchUser();
   }, [user, startParam, showOnboarding]);
+
+  useEffect(() => {
+    const updateTimer = () => {
+      const now = new Date();
+      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const diff = tomorrow - now;
+      
+      const h = Math.floor((diff / (1000 * 60 * 60)) % 24).toString().padStart(2, '0');
+      const m = Math.floor((diff / 1000 / 60) % 60).toString().padStart(2, '0');
+      const s = Math.floor((diff / 1000) % 60).toString().padStart(2, '0');
+      
+      setTimeToNextDay(`${h}:${m}:${s}`);
+    };
+    
+    updateTimer();
+    const timer = setInterval(updateTimer, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'friends' && userData) {
@@ -224,14 +253,19 @@ function App() {
   };
 
   // ==========================================
-  // ПАСИВНИЙ ДОХІД
+  // ПАСИВНИЙ ДОХІД ТА АВТОКЛІКЕР
   // ==========================================
 
   useEffect(() => {
     let totalIncomePerHour = passiveIncome;
     let addedPerSec = totalIncomePerHour / 3600;
     
-    if (userData?.auto_click) addedPerSec += (7 * level);
+    // Автоклікер тепер теж розумний
+    if (userData?.auto_click) {
+      const smart_tap_base = (level * 2) + Math.floor(addedPerSec * 3);
+      addedPerSec += (smart_tap_base * 5); 
+    }
+    
     if (addedPerSec <= 0) return;
 
     const interval = setInterval(() => {
@@ -253,11 +287,12 @@ function App() {
 
       if (userData?.auto_click && duckRef.current && activeTab === 'tap') {
         const rect = duckRef.current.getBoundingClientRect();
+        const smart_tap_base = (level * 2) + Math.floor((passiveIncome/3600) * 3);
         const newClicks = Array.from({ length: 2 }).map(() => ({
           id: Date.now() + Math.random(),
           x: (Math.random() * rect.width) + 20,
           y: (Math.random() * rect.height) + 20,
-          val: level
+          val: formatNum(smart_tap_base)
         }));
         setClicks(prev => [...prev.slice(-15), ...newClicks]);
       }
@@ -274,18 +309,25 @@ function App() {
   }, []);
 
   // ==========================================
-  // КЛІК ПО КАЧЦІ
+  // КЛІК ПО КАЧЦІ (РОЗУМНИЙ ТАП)
   // ==========================================
 
   const handleTap = (e) => {
-    if (!userData || showLeaderboard || showDailyModal || showLevelUp || showSquadModal || showOnboarding || showSettings) return;
+    if (!userData || showLeaderboard || showLevelUp || showSquadModal || showOnboarding || showSettings) return;
     if (energy <= 0) return;
 
     triggerHaptic('medium');
     setIsWobbling(true);
     setTimeout(() => setIsWobbling(false), 150);
 
-    const tapValue = userData.active_boost ? level * userData.boost_multiplier : level;
+    let current_mult = 1;
+    if (userData.active_daily_x2) current_mult = 2; 
+    if (userData.active_boost) current_mult = userData.boost_multiplier; 
+
+    // 🔥 Розумний тап (на фронтенді для анімації)
+    const passive_per_sec = passiveIncome / 3600;
+    const smart_tap_base = (level * 2) + Math.floor(passive_per_sec * 3);
+    const tapValue = smart_tap_base * current_mult;
 
     setTotalEarned(prev => {
       const newTotal = prev + tapValue;
@@ -305,7 +347,7 @@ function App() {
     setEnergy(prev => prev - 1);
 
     const rect = duckRef.current.getBoundingClientRect();
-    const newClick = { id: Date.now() + Math.random(), x: e.clientX - rect.left, y: e.clientY - rect.top, val: tapValue };
+    const newClick = { id: Date.now() + Math.random(), x: e.clientX - rect.left, y: e.clientY - rect.top, val: formatNum(tapValue) };
 
     setClicks(prev => [...prev.slice(-20), newClick]);
     setTimeout(() => { setClicks(prev => prev.filter(c => c.id !== newClick.id)); }, 1000);
@@ -341,7 +383,6 @@ function App() {
 
   const watchAdForBoost = (boostType) => {
     if (window.Adsgram) {
-      // 🔥 ТВІЙ ADSGRAM BLOCK ID ВСТАВЛЕНО ТУТ 🔥
       const AdController = window.Adsgram.init({ blockId: "25134" });
       AdController.show()
         .then(async () => {
@@ -363,7 +404,7 @@ function App() {
               if (Number(res.data.user.total_earned) >= LEVEL_THRESHOLDS[i]) { calcLvl = i + 1; break; }
             }
             if (calcLvl > level) { triggerLevelUp(calcLvl); setLevel(calcLvl); }
-            tg.showAlert("Реклами поки немає, але ти отримуєш бонус +1500 монет 💰");
+            tg.showAlert("Реклами поки немає, але ти отримуєш втішний бонус 💰");
           } catch (err) { tg.showAlert(err.response?.data?.error || "Помилка (Можливо таймер ще не пройшов)"); }
         });
     } else {
@@ -506,8 +547,16 @@ function App() {
   const claimDaily = async () => {
     try {
       const response = await axios.post(`${SERVER_URL}/user/daily`, { telegram_id: userData.telegram_id });
-      setPoints(Number(response.data.user.season_points)); setTotalEarned(Number(response.data.user.total_earned)); setUserData(response.data.user); setShowDailyModal(false); setDailyAvailable(false); triggerNotification('success');
-    } catch (err) { setShowDailyModal(false); }
+      setPoints(Number(response.data.user.season_points)); 
+      setTotalEarned(Number(response.data.user.total_earned)); 
+      setUserData(response.data.user); 
+      setDailyAvailable(false); 
+      triggerNotification('success');
+      
+      if (response.data.reward === '24h_x2') {
+        tg.showAlert("🔥 СУПЕРПРИЗ! Тап x2 активовано на цілу добу!");
+      }
+    } catch (err) { console.error(err); }
   };
 
   const toggleHaptic = () => {
@@ -520,7 +569,6 @@ function App() {
   const finishOnboarding = () => {
     localStorage.setItem('onboarding_done', 'true');
     setShowOnboarding(false);
-    if (dailyAvailable) setShowDailyModal(true);
   };
 
   const isCooldown = (readyAt) => readyAt && new Date(readyAt).getTime() > Date.now();
@@ -594,13 +642,16 @@ function App() {
     "from-yellow-600 to-red-900"
   ];
 
+  // Динамічний магніт для UI
+  const dynamicMagnetValue = Math.max(5000, passiveIncome * 2);
+
   return (
     <div className={`flex flex-col h-screen bg-gradient-to-b ${bgColors[Math.min(level-1, 9)]} select-none overflow-hidden text-white transition-colors duration-1000`}>
       
       {offlineEarned > 0 && (
         <div className="absolute top-20 left-4 right-4 bg-green-500 text-white p-4 rounded-2xl shadow-2xl z-50 text-center animate-fade-in border-2 border-green-400">
           <p className="font-black text-xl mb-1">Ти спав, а бізнес працював!</p>
-          <p className="font-bold text-lg">+ {offlineEarned} 💰</p>
+          <p className="font-bold text-lg">+ {formatNum(offlineEarned)} 💰</p>
         </div>
       )}
       
@@ -627,11 +678,13 @@ function App() {
         {userData.auto_click && <div className="bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-3 animate-pulse">🤖 ПРАЦЮЄ АВТОКЛІКЕР!</div>}
         {userData.active_boost && <div className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-3 ml-2 animate-bounce">🔥 БУСТ x5 АКТИВНИЙ!</div>}
         
+        {userData.active_daily_x2 && !userData.active_boost && <div className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-3 ml-2 animate-pulse shadow-[0_0_10px_rgba(220,38,38,0.8)]">🔥 ДЕНЬ 7: ТАП x2!</div>}
+        
         <div className="bg-gray-800/80 backdrop-blur-sm rounded-3xl p-5 shadow-2xl border border-gray-700/50 flex flex-col items-center justify-center">
           <div className="flex justify-center items-center gap-2 text-gray-400 text-[10px] uppercase tracking-widest font-bold mb-1">
-            <span>Баланс</span><span className={passiveIncome > 0 ? "text-green-400" : "text-gray-500"}>+{passiveIncome}/год</span>
+            <span>Баланс</span><span className={passiveIncome > 0 ? "text-green-400" : "text-gray-500"}>+{formatNum(passiveIncome)}/год</span>
           </div>
-          <p className="text-6xl font-black text-center text-transparent bg-clip-text bg-gradient-to-b from-yellow-200 to-yellow-500 drop-shadow-lg leading-tight">{Math.floor(points)}</p>
+          <p className="text-5xl font-black text-center text-transparent bg-clip-text bg-gradient-to-b from-yellow-200 to-yellow-500 drop-shadow-lg leading-tight">{formatNum(points)}</p>
         </div>
       </div>
 
@@ -641,7 +694,7 @@ function App() {
             <div className="relative flex-1 flex items-center justify-center w-full touch-none select-none cursor-pointer" onPointerDown={handleTap} ref={duckRef}>
               <div className="absolute bg-yellow-500/10 w-64 h-64 rounded-full blur-[50px] pointer-events-none"></div>
               <img src={currentSkinImg} alt="Duck" className={`w-64 h-64 object-contain drop-shadow-[0_15px_25px_rgba(0,0,0,0.6)] pointer-events-none transition-transform duration-75 ${isWobbling ? 'scale-90 -rotate-12' : 'scale-100 rotate-0'} ${isFlipping ? 'animate-flip-360' : ''} ${userData.auto_click ? 'animate-pulse' : ''}`} />
-              {clicks.map((c) => (<div key={c.id} className="absolute text-4xl font-black text-yellow-300 pointer-events-none z-50" style={{ left: c.x - 20, top: c.y - 50, animation: 'floatUp 1s ease-out forwards' }}>+{c.val}</div>))}
+              {clicks.map((c) => (<div key={c.id} className="absolute text-2xl font-black text-yellow-300 pointer-events-none z-50" style={{ left: c.x - 20, top: c.y - 50, animation: 'floatUp 1s ease-out forwards' }}>+{c.val}</div>))}
             </div>
 
             <div className="w-full bg-gray-800/90 backdrop-blur-md p-4 rounded-3xl border border-gray-700/50 shrink-0 shadow-xl">
@@ -657,7 +710,7 @@ function App() {
               </div>
               <div className="w-full bg-gray-900 rounded-full h-5 overflow-hidden border border-gray-950 shadow-inner relative flex items-center justify-center">
                 <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-300 transition-all duration-300 rounded-full" style={{ width: `${Math.min(level < 10 ? ((totalEarned - LEVEL_THRESHOLDS[level-1]) / (LEVEL_THRESHOLDS[level] - LEVEL_THRESHOLDS[level-1])) * 100 : 100, 100)}%` }}></div>
-                <span className="relative z-10 text-[10px] font-black text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)] tracking-wider">{level < 10 ? `${Math.floor(totalEarned)} / ${LEVEL_THRESHOLDS[level]}` : 'MAX LEVEL'}</span>
+                <span className="relative z-10 text-[10px] font-black text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)] tracking-wider">{level < 10 ? `${formatNum(totalEarned)} / ${formatNum(LEVEL_THRESHOLDS[level])}` : 'MAX LEVEL'}</span>
               </div>
             </div>
           </div>
@@ -689,7 +742,7 @@ function App() {
                       {isLocked ? (
                         <button disabled className="font-bold py-2 px-3 text-[10px] rounded-xl bg-gray-700 text-gray-400 border border-gray-600">🔒 {item.reqRefs} друзів</button>
                       ) : (
-                        <button onClick={() => buyUpgrade(item, currentCost)} className={`font-bold py-2 px-3 text-sm rounded-xl active:scale-95 ${points >= currentCost ? 'bg-yellow-500 text-gray-900' : 'bg-gray-700 text-gray-500'}`}>{currentCost} 💰</button>
+                        <button onClick={() => buyUpgrade(item, currentCost)} className={`font-bold py-2 px-3 text-sm rounded-xl active:scale-95 ${points >= currentCost ? 'bg-yellow-500 text-gray-900' : 'bg-gray-700 text-gray-500'}`}>{formatNum(currentCost)} 💰</button>
                       )}
                     </div>
                   );
@@ -709,7 +762,7 @@ function App() {
                     <div key={skin.id} className={`bg-gray-800 border p-4 rounded-3xl text-center flex flex-col items-center justify-between h-48 ${isEquipped ? 'border-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'border-gray-700'}`}>
                       <img src={skin.img} className="w-16 h-16 object-contain mb-2 drop-shadow-lg" />
                       <h3 className="font-bold text-sm text-white mb-2">{skin.name}</h3>
-                      <button onClick={() => handleSkin(skin)} className={`w-full py-2 rounded-xl text-xs font-bold active:scale-95 transition-all ${isEquipped ? 'bg-yellow-400 text-gray-900' : isOwned ? 'bg-gray-600 text-white' : points >= skin.cost ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-500'}`}>{isEquipped ? 'Одягнено' : isOwned ? 'Одягнути' : `${skin.cost} 💰`}</button>
+                      <button onClick={() => handleSkin(skin)} className={`w-full py-2 rounded-xl text-xs font-bold active:scale-95 transition-all ${isEquipped ? 'bg-yellow-400 text-gray-900' : isOwned ? 'bg-gray-600 text-white' : points >= skin.cost ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-500'}`}>{isEquipped ? 'Одягнено' : isOwned ? 'Одягнути' : `${formatNum(skin.cost)} 💰`}</button>
                     </div>
                   );
                 })}
@@ -720,9 +773,54 @@ function App() {
 
         {activeTab === 'tasks' && (
           <div className="flex-1 flex flex-col p-4 animate-fade-in overflow-y-auto">
-            {dailyAvailable && (
-              <button onClick={() => setShowDailyModal(true)} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-gray-900 font-black py-4 rounded-2xl mb-6 shadow-[0_0_15px_rgba(249,115,22,0.5)] animate-pulse active:scale-95">🎁 Забрати Щоденний Бонус!</button>
-            )}
+            
+            <div className="bg-gray-800 border border-gray-700 p-5 rounded-3xl mb-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-yellow-500/20 rounded-full blur-[50px] pointer-events-none"></div>
+              
+              <h2 className="text-xl font-black text-white mb-1 text-center flex justify-center items-center gap-2">
+                <span>📅</span> Щоденний бонус
+              </h2>
+              <p className="text-[11px] text-gray-400 text-center mb-5">Заходь щодня без перерви, щоб забрати головний приз!</p>
+              
+              <div className="grid grid-cols-4 gap-2 mb-5 relative z-10">
+                {DAILY_REWARDS.map((reward, index) => {
+                  const streak = userData?.daily_streak || 0;
+                  const isReadyToClaim = dailyAvailable && (streak === index || (streak === 7 && index === 6));
+                  const isClaimed = (streak > index) && !isReadyToClaim;
+                  const isNext = !dailyAvailable && (streak === index || (streak === 7 && index === 6));
+
+                  let boxStateClass = "bg-gray-900 border-gray-800 text-gray-500 opacity-60"; 
+                  if (isClaimed) boxStateClass = "bg-green-900/30 border-green-500/50 text-green-400"; 
+                  if (isReadyToClaim) boxStateClass = "bg-gradient-to-b from-yellow-400 to-yellow-600 border-yellow-300 text-gray-900 shadow-[0_0_15px_rgba(234,179,8,0.4)] animate-pulse cursor-pointer transform hover:scale-105 active:scale-95"; 
+                  if (isNext) boxStateClass = "bg-blue-900/40 border-blue-500/50 text-blue-300 shadow-[0_0_10px_rgba(59,130,246,0.2)]"; 
+
+                  return (
+                    <div 
+                      key={reward.day} 
+                      onClick={() => { if(isReadyToClaim) claimDaily() }}
+                      className={`flex flex-col items-center justify-center p-2 rounded-xl border ${boxStateClass} ${index === 6 ? 'col-span-2 flex-row gap-3' : ''} transition-all`}
+                    >
+                      <div className="flex flex-col items-center">
+                        <span className={`text-[9px] font-bold mb-1 ${isReadyToClaim ? 'text-gray-800' : 'opacity-80'}`}>День {reward.day}</span>
+                        <span className="text-xl mb-1">{isClaimed ? '✅' : isReadyToClaim ? '🎁' : '🔒'}</span>
+                      </div>
+                      <span className={`text-[11px] font-black ${isReadyToClaim ? 'text-gray-900' : ''}`}>
+                        {reward.label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {!dailyAvailable && (
+                <div className="text-center bg-gray-900/80 rounded-2xl py-3 border border-gray-700 relative z-10 flex flex-col items-center justify-center">
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Наступна нагорода через</span>
+                  <div className="flex items-center gap-1 text-2xl font-black text-yellow-400 font-mono tracking-wider">
+                    <span>⏳</span> {timeToNextDay}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🔄 Бусти (За відео)</h2>
             <div className="grid grid-cols-2 gap-3 mb-6">
@@ -739,15 +837,15 @@ function App() {
                 <button disabled={userData.ad_autoclick_left <= 0 || isCooldown(userData.ad_autoclick_ready_at)} onClick={() => watchAdForBoost('autoclick')} className={`w-full text-white text-[10px] font-bold py-2 rounded-lg ${userData.ad_autoclick_left <= 0 ? 'bg-gray-700 text-gray-500' : isCooldown(userData.ad_autoclick_ready_at) ? 'bg-gray-600 text-orange-300' : 'bg-purple-500 active:scale-95'}`}>{userData.ad_autoclick_left <= 0 ? 'Завтра' : isCooldown(userData.ad_autoclick_ready_at) ? `⏳ ${getRemainingMin(userData.ad_autoclick_ready_at)} хв` : 'Дивитись'}</button>
               </div>
               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl flex flex-col items-center text-center gap-2">
-                <div className="text-2xl">🧲</div><h3 className="font-bold text-xs text-white">+5,000 Монет</h3><p className="text-[10px] text-gray-400">{userData.ad_magnet_left}/3</p>
+                <div className="text-2xl">🧲</div><h3 className="font-bold text-xs text-white">+{formatNum(dynamicMagnetValue)}</h3><p className="text-[10px] text-gray-400">{userData.ad_magnet_left}/3</p>
                 <button disabled={userData.ad_magnet_left <= 0 || isCooldown(userData.ad_magnet_ready_at)} onClick={() => watchAdForBoost('magnet')} className={`w-full text-white text-[10px] font-bold py-2 rounded-lg ${userData.ad_magnet_left <= 0 ? 'bg-gray-700 text-gray-500' : isCooldown(userData.ad_magnet_ready_at) ? 'bg-gray-600 text-orange-300' : 'bg-green-500 active:scale-95'}`}>{userData.ad_magnet_left <= 0 ? 'Завтра' : isCooldown(userData.ad_magnet_ready_at) ? `⏳ ${getRemainingMin(userData.ad_magnet_ready_at)} хв` : 'Дивитись'}</button>
               </div>
             </div>
 
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🌐 Соцмережі</h2>
             <div className="space-y-3 mb-6">
-              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between"><div><h3 className="font-bold text-white text-sm">📣 Підписка Telegram</h3><p className="text-[10px] text-yellow-400">+ 25,000</p></div><button onClick={claimTelegramTask} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_tg_claimed ? 'bg-gray-700 text-gray-500' : 'bg-blue-500 text-white active:scale-95'}`}>{userData.task_tg_claimed ? 'Виконано' : 'Підписатись'}</button></div>
-              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between"><div><h3 className="font-bold text-white text-sm">✖️ Підписка на X</h3><p className="text-[10px] text-yellow-400">+ 10,000</p></div><button onClick={() => claimSocialTask('x', 'https://twitter.com/')} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_x_claimed ? 'bg-gray-700 text-gray-500' : 'bg-gray-600 text-white active:scale-95'}`}>{userData.task_x_claimed ? 'Виконано' : 'Перейти'}</button></div>
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between"><div><h3 className="font-bold text-white text-sm">📣 Підписка Telegram</h3><p className="text-[10px] text-yellow-400">+ 25 000</p></div><button onClick={claimTelegramTask} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_tg_claimed ? 'bg-gray-700 text-gray-500' : 'bg-blue-500 text-white active:scale-95'}`}>{userData.task_tg_claimed ? 'Виконано' : 'Підписатись'}</button></div>
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between"><div><h3 className="font-bold text-white text-sm">✖️ Підписка на X</h3><p className="text-[10px] text-yellow-400">+ 10 000</p></div><button onClick={() => claimSocialTask('x', 'https://twitter.com/')} className={`text-xs font-bold py-2 px-4 rounded-xl ${userData.task_x_claimed ? 'bg-gray-700 text-gray-500' : 'bg-gray-600 text-white active:scale-95'}`}>{userData.task_x_claimed ? 'Виконано' : 'Перейти'}</button></div>
             </div>
             
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🏆 Досягнення</h2>
@@ -760,7 +858,7 @@ function App() {
               ].map(ach => {
                 const isDone = userData.achievements?.includes(ach.id);
                 return (
-                  <div key={ach.id} className="bg-gray-800 p-3 rounded-2xl flex justify-between items-center border border-gray-700"><div><h3 className="text-sm font-bold text-white">{ach.name}</h3><p className="text-[10px] text-yellow-400">Нагорода: +{ach.reward}</p></div><button onClick={() => claimAchievement(ach.id, ach.reward, ach.goal, ach.type)} className={`text-xs font-bold py-2 px-3 rounded-lg ${isDone ? 'bg-gray-700 text-gray-500' : 'bg-green-500 text-white active:scale-95'}`}>{isDone ? 'Забрано' : 'Забрати'}</button></div>
+                  <div key={ach.id} className="bg-gray-800 p-3 rounded-2xl flex justify-between items-center border border-gray-700"><div><h3 className="text-sm font-bold text-white">{ach.name}</h3><p className="text-[10px] text-yellow-400">Нагорода: +{formatNum(ach.reward)}</p></div><button onClick={() => claimAchievement(ach.id, ach.reward, ach.goal, ach.type)} className={`text-xs font-bold py-2 px-3 rounded-lg ${isDone ? 'bg-gray-700 text-gray-500' : 'bg-green-500 text-white active:scale-95'}`}>{isDone ? 'Забрано' : 'Забрати'}</button></div>
                 );
               })}
             </div>
@@ -823,7 +921,7 @@ function App() {
                         <p className="text-xs text-yellow-400">{getLeague(friend.level).name}</p>
                       </div>
                       <div className="text-right mt-3">
-                        <span className="font-black text-white text-lg">{friend.total_earned} 💰</span>
+                        <span className="font-black text-white text-lg">{formatNum(friend.total_earned)} 💰</span>
                       </div>
                     </div>
 
@@ -927,14 +1025,14 @@ function App() {
                     <span className="font-black text-gray-500 w-6 text-center">{i + 1}</span>
                     <div><h3 className="font-bold text-white text-sm">{p.first_name}</h3><p className="text-[10px] text-yellow-400">{getLeague(p.level).name}</p></div>
                   </div>
-                  <span className="font-black text-white">{p.total_earned} 💰</span>
+                  <span className="font-black text-white">{formatNum(p.total_earned)} 💰</span>
                 </div>
               ))
             ) : (
               leadersData.squads.map((s, i) => (
                 <div key={s.username} className="flex items-center justify-between p-3 rounded-2xl bg-gray-800">
                   <div className="flex items-center gap-3"><span className="font-black text-gray-500 w-6 text-center">{i + 1}</span><div><h3 className="font-bold text-white text-sm">{s.name}</h3><p className="text-[10px] text-blue-400">{s.members_count} учасників</p></div></div>
-                  <span className="font-black text-yellow-400">{s.total_points} 🏆</span>
+                  <span className="font-black text-yellow-400">{formatNum(s.total_points)} 🏆</span>
                 </div>
               ))
             )}
@@ -942,7 +1040,7 @@ function App() {
           {currentUserRankData && leaderboardTab === 'players' && (
             <div className="bg-gradient-to-r from-yellow-600 to-orange-600 p-4 rounded-2xl mt-2 shrink-0 flex justify-between items-center shadow-lg">
               <div className="flex items-center gap-3"><span className="font-black text-white w-6 text-center">{currentUserRankData.rank || '-'}</span><div><h3 className="font-bold text-white text-sm">Твоє місце</h3><p className="text-[10px] text-yellow-200">{getLeague(currentUserRankData.level).name}</p></div></div>
-              <span className="font-black text-white">{currentUserRankData.total_earned} 💰</span>
+              <span className="font-black text-white">{formatNum(currentUserRankData.total_earned)} 💰</span>
             </div>
           )}
         </div>
@@ -971,20 +1069,6 @@ function App() {
             )}
 
           </div>
-        </div>
-      )}
-
-      {showDailyModal && (
-        <div className="absolute inset-0 z-50 bg-gray-950/95 flex flex-col items-center justify-center p-6 animate-fade-in backdrop-blur-md text-center">
-          <div className="text-7xl mb-6 animate-bounce">🎁</div><h2 className="text-3xl font-black text-yellow-400 uppercase tracking-widest mb-4">Щоденний бонус!</h2>
-          <button onClick={claimDaily} className="bg-gradient-to-r from-yellow-500 to-orange-500 text-gray-900 font-black text-xl py-4 px-10 rounded-2xl w-full active:scale-95">Забрати нагороду!</button>
-        </div>
-      )}
-
-      {showLevelUp && justReachedLevel && (
-        <div className="absolute inset-0 z-[70] bg-gray-950/90 flex flex-col items-center justify-center p-6 animate-fade-in backdrop-blur-lg text-center">
-          <div className="text-8xl mb-4 animate-bounce">🎉</div><h2 className="text-4xl font-black text-white uppercase tracking-widest mb-2">Новий Рівень!</h2><p className="text-2xl text-yellow-400 font-bold mb-8">Ти тепер <span className="uppercase text-3xl block mt-2">{levelNames[justReachedLevel - 1]}</span></p>
-          <button onClick={() => setShowLevelUp(false)} className="bg-yellow-500 text-gray-900 font-black text-xl py-4 px-12 rounded-2xl shadow-[0_0_30px_rgba(234,179,8,0.5)] active:scale-95 transition-all w-full">Продовжити!</button>
         </div>
       )}
 
