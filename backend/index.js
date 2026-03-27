@@ -106,7 +106,7 @@ const SHOP_ITEMS_DB = {
 };
 
 // ==========================================
-// 🔥 ТЕЛЕГРАМ БОТ (Обробка /start) 🔥
+// 🔥 ТЕЛЕГРАМ БОТ
 // ==========================================
 const token = process.env.BOT_TOKEN;
 
@@ -386,12 +386,19 @@ app.post('/api/user/claim_ref_reward', async (req, res) => {
 
 app.post('/api/user/tap', async (req, res) => {
   const { telegram_id, count = 1 } = req.body;
-  const actualTouches = Math.min(Number(count) || 10, 15);
+  
+  // 🔥 ВИРІШЕННЯ ПРОБЛЕМИ "ПРИМАРНИХ" МОНЕТ!
+  // Беремо всю пачку тапів (але не більше 500 за раз для захисту від ботів)
+  let actualTouches = Math.min(Number(count) || 1, 500);
+  
   try {
     const user = await User.findByPk(String(telegram_id));
     if (!user) return res.status(404).json({ error: 'Not found' });
     await calculateOfflineProgress(user);
-    if (user.energy < actualTouches) return res.status(400).json({ error: 'Недостатньо енергії' });
+    
+    // Якщо енергії менше, ніж гравець натапав - просто беремо те, що залишилось, а не блокуємо запит!
+    actualTouches = Math.min(actualTouches, user.energy);
+    if (actualTouches <= 0) return res.status(400).json({ error: 'Недостатньо енергії' });
     
     const active_boost = user.boost_until && new Date(user.boost_until) > new Date();
     

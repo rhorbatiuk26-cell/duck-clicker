@@ -324,7 +324,6 @@ function App() {
     }, 500);
   };
 
-  // 🔥 НОВЕ: Функція для примусової синхронізації тапів перед покупками
   const flushTaps = async () => {
     if (pendingTaps.current > 0 && userData) {
       const countToSend = pendingTaps.current;
@@ -342,7 +341,7 @@ function App() {
 
   const watchAdForBoost = (boostType) => {
     if (window.Adsgram) {
-      // 🔥 ТВІЙ ADSGRAM BLOCK ID 🔥
+      // 🔥 ТВІЙ ADSGRAM BLOCK ID ВСТАВЛЕНО ТУТ 🔥
       const AdController = window.Adsgram.init({ blockId: "25134" });
       AdController.show()
         .then(async () => {
@@ -378,7 +377,7 @@ function App() {
 
   const buyUpgrade = async (item, currentCost) => {
     if (points < currentCost) { triggerNotification('error'); return; }
-    await flushTaps(); // 🔥 Синхронізуємо кліки перед покупкою
+    await flushTaps(); 
     triggerNotification('success');
     try {
       const response = await axios.post(`${SERVER_URL}/user/buy_upgrade`, { telegram_id: userData.telegram_id, item_id: item.id, cost: currentCost, income_increase: item.income });
@@ -389,7 +388,7 @@ function App() {
   const handleSkin = async (skin) => {
     const isOwned = userData.unlocked_skins?.includes(skin.id);
     if (!isOwned && points < skin.cost) return;
-    await flushTaps(); // 🔥 Синхронізуємо кліки перед покупкою
+    await flushTaps(); 
     triggerNotification('success');
     try {
       const res = await axios.post(`${SERVER_URL}/user/buy_skin`, { telegram_id: userData.telegram_id, skin_id: skin.id, cost: skin.cost });
@@ -882,7 +881,7 @@ function App() {
               </p>
             </div>
             
-            {String(user.id) === ADMIN_TELEGRAM_ID && (
+            {String(user?.id) === ADMIN_TELEGRAM_ID && (
               <div className="bg-red-900/50 border-2 border-red-500 p-5 rounded-3xl mb-6">
                 <h3 className="text-white font-bold mb-2 text-center">Меню Адміністратора</h3>
                 <button onClick={endSeasonAdmin} className="bg-red-600 text-white font-black py-4 rounded-xl w-full active:scale-95 transition-all">🛑 ТЕСТОВЕ ЗАВЕРШЕННЯ СЕЗОНУ</button>
