@@ -413,10 +413,33 @@ function App() {
   // ІНШІ ФУНКЦІЇ ТА ДРУЗІ
   // ==========================================
 
+  // 🔥 ОСЬ ЦЕЙ БЛОК ОНОВЛЕНО ДЛЯ СИНХРОНІЗАЦІЇ АВТОКЛІКЕРА 🔥
   const buyUpgrade = async (item, currentCost) => {
     if (points < currentCost) { triggerNotification('error'); return; }
+
+    try {
+      // Синхронізуємо баланс із сервером (підтягуємо напрацьоване автоклікером)
+      const syncResponse = await axios.post(`${SERVER_URL}/user/init`, {
+        telegram_id: userData.telegram_id,
+        first_name: userData.first_name,
+        start_param: startParam || null
+      });
+      
+      const serverPoints = Number(syncResponse.data.user.season_points);
+      setPoints(serverPoints);
+      setUserData(syncResponse.data.user);
+      
+      // Якщо і після синхронізації не вистачає - стопаємо
+      if (serverPoints < currentCost) {
+          triggerNotification('error');
+          tg.showAlert("Сервер ще не нарахував монети. Спробуй через секунду.");
+          return; 
+      }
+    } catch (err) { console.error("Sync before purchase error:", err); }
+
     await flushTaps(); 
     triggerNotification('success');
+    
     try {
       const response = await axios.post(`${SERVER_URL}/user/buy_upgrade`, { telegram_id: userData.telegram_id, item_id: item.id, cost: currentCost, income_increase: item.income });
       setUserData(response.data.user); setPoints(Number(response.data.user.season_points)); setPassiveIncome(Number(response.data.user.passive_income));
@@ -498,7 +521,6 @@ function App() {
     }, 5000);
   };
 
-  // 🔥 ОСЬ ВИПРАВЛЕНА ФУНКЦІЯ ТА КНОПКА (ЗАХИСТ ВІД СПАМУ ТА ЗМІНА tg) 🔥
   const claimTelegramTask = async () => {
     if (userData.task_tg_claimed) return;
     tg.openTelegramLink(CHANNEL_URL);
@@ -839,7 +861,6 @@ function App() {
 
             <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🌐 Соцмережі</h2>
             <div className="space-y-3 mb-6">
-              {/* 🔥 ОСЬ ВИПРАВЛЕНА КНОПКА ПІДПИСКИ 🔥 */}
               <div className="bg-gray-800 border border-gray-700 p-4 rounded-3xl flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-white text-sm">📣 Підписка Telegram</h3>
