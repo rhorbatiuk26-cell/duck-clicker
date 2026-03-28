@@ -194,7 +194,7 @@ const endSeasonAndNotify = async () => {
     
     await sendTelegramMessage(adminId, msg);
     
-    // 🔥 ОНОВЛЕНО: Тепер ми також обнуляємо досягнення (achievements: [])
+    // Обнуляємо прогрес і досягнення на старті нового сезону
     await User.update({ season_points: 0, total_earned: 0, level: 1, energy: MAX_ENERGY, passive_income: 0, businesses: {}, achievements: [] }, { where: {} });
     await Squad.update({ total_points: 0 }, { where: {} });
     return { success: true };
@@ -458,10 +458,13 @@ app.post('/api/user/tap', async (req, res) => {
   }
 });
 
+// 🔥 БУСТИ ЗА ВІДЕО: ВСТАНОВЛЕНО ЛІМІТ 2 ГОДИНИ 🔥
 app.post('/api/user/ad_boost', async (req, res) => {
   const { telegram_id, boost_type, fallback } = req.body;
   const now = new Date();
-  const AD_COOLDOWN_MS = 60 * 60 * 1000; 
+  
+  // Змінено кулдаун на 2 години (2 * 60 хв * 60 сек * 1000 мс)
+  const AD_COOLDOWN_MS = 2 * 60 * 60 * 1000; 
   const cooldownEnd = new Date(now.getTime() + AD_COOLDOWN_MS);
 
   try {
