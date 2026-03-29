@@ -95,7 +95,7 @@ sequelize.sync({ alter: true }).then(() => console.log('✅ База даних 
 
 const LEVEL_THRESHOLDS = [0, 50000, 500000, 2500000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000];
 
-const MAX_ENERGY = 1500;
+const MAX_ENERGY = 1000;
 const MAX_OFFLINE_SECONDS = 3 * 60 * 60;
 
 // ==========================================

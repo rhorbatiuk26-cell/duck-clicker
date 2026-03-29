@@ -24,7 +24,7 @@ const LEVEL_THRESHOLDS = [
   100000000000
 ];
 
-const MAX_ENERGY = 1500;
+const MAX_ENERGY = 1000;
 
 const levelNames = [
   "Бродяга",
