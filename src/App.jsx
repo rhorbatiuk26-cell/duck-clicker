@@ -4,11 +4,7 @@ import axios from 'axios';
 // ==========================================
 // ІМПОРТ ТВОЇХ 5 КАРТИНОК
 // ==========================================
-import duck1 from './assets/duck_1.png';
-import duck2 from './assets/duck_2.png';
-import duck3 from './assets/duck_3.png';
-import duck4 from './assets/duck_4.png';
-import duck5 from './assets/duck_5.png';
+
 
 // ==========================================
 // КОНСТАНТИ ТА НАЛАШТУВАННЯ
@@ -50,11 +46,11 @@ const levelNames = [
 
 // 🔥 ОСЬ ТУТ МИ РОЗКИДАЛИ 5 КАРТИНОК НА 10 РІВНІВ 🔥
 const LEVEL_SKINS = [
-  duck1, duck1, // Рівні 1-2 (Бродяга, Новачок)
-  duck2, duck2, // Рівні 3-4 (Шукач, Хуліган)
-  duck3, duck3, // Рівні 5-6 (Бізнесмен, Бос)
-  duck4, duck4, // Рівні 7-8 (Магнат, Олігарх)
-  duck5, duck5  // Рівні 9-10 (Божество, Творець)
+  "/duck_1.png", "/duck_1.png", // Рівні 1-2
+  "/duck_2.png", "/duck_2.png", // Рівні 3-4
+  "/duck_3.png", "/duck_3.png", // Рівні 5-6
+  "/duck_4.png", "/duck_4.png", // Рівні 7-8
+  "/duck_5.png", "/duck_5.png"  // Рівні 9-10
 ];
 
 const getLeague = (lvl) => {
