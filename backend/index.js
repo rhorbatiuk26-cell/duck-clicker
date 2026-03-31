@@ -6,6 +6,7 @@ import https from 'https';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import TelegramBot from 'node-telegram-bot-api'; 
+import cron from 'node-cron'; 
 
 dotenv.config();
 
@@ -203,13 +204,30 @@ const endSeasonAndNotify = async () => {
   }
 };
 
-setInterval(async () => {
-  const now = new Date();
-  if (now.getDate() === 1 && now.getHours() === 0) {
+// ==========================================
+// 🔥 АВТОМАТИЧНЕ ОБНУЛЕННЯ СЕЗОНУ (CRON)
+// ==========================================
+cron.schedule('0 0 1 * *', async () => {
+  console.log('⏳ Починаємо автоматичне обнулення сезону (за розкладом)...');
+  try {
     const activeUsers = await User.count({ where: { total_earned: { [Op.gt]: 0 } } });
-    if (activeUsers > 0) await endSeasonAndNotify();
+    if (activeUsers > 0) {
+      const result = await endSeasonAndNotify();
+      if (result.success) {
+        console.log('✅ Новий сезон успішно автоматично стартував!');
+      } else {
+        console.error('❌ Помилка під час авто-обнулення сезону:', result.error);
+      }
+    } else {
+      console.log('ℹ️ Активних гравців немає, обнулення пропущено.');
+    }
+  } catch (err) {
+    console.error('❌ Критична помилка авто-обнулення:', err);
   }
-}, 1000 * 60 * 30);
+}, {
+  scheduled: true,
+  timezone: "Europe/Kyiv" 
+});
 
 const calculateOfflineProgress = async (user) => {
   const now = new Date();
@@ -405,7 +423,14 @@ app.post('/api/user/claim_ref_reward', async (req, res) => {
     user.level = new_level > 10 ? 10 : new_level;
 
     await user.save();
-    res.json({ user: user.get(), reward });
+    
+    // 🔥 Виправляємо баг з бустами тут
+    const now = new Date();
+    const active_boost = user.boost_until && new Date(user.boost_until) > now;
+    const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
+    const active_daily_x2 = user.daily_x2_until && new Date(user.daily_x2_until) > now;
+
+    res.json({ user: { ...user.get(), active_boost, auto_click, active_daily_x2 }, reward });
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -458,12 +483,10 @@ app.post('/api/user/tap', async (req, res) => {
   }
 });
 
-// 🔥 БУСТИ ЗА ВІДЕО: ВСТАНОВЛЕНО ЛІМІТ 2 ГОДИНИ 🔥
 app.post('/api/user/ad_boost', async (req, res) => {
   const { telegram_id, boost_type, fallback } = req.body;
   const now = new Date();
   
-  // Змінено кулдаун на 2 години (2 * 60 хв * 60 сек * 1000 мс)
   const AD_COOLDOWN_MS = 2 * 60 * 60 * 1000; 
   const cooldownEnd = new Date(now.getTime() + AD_COOLDOWN_MS);
 
@@ -542,13 +565,19 @@ app.post('/api/squad/join', async (req, res) => {
       await user.save(); 
       await Squad.increment('members_count', { by: 1, where: { username: cleanUsername } }); 
     }
-    res.json({ user: user.get(), squad: squad.get() });
+    
+    // 🔥 Виправляємо баг з бустами тут
+    const now = new Date();
+    const active_boost = user.boost_until && new Date(user.boost_until) > now;
+    const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
+    const active_daily_x2 = user.daily_x2_until && new Date(user.daily_x2_until) > now;
+
+    res.json({ user: { ...user.get(), active_boost, auto_click, active_daily_x2 }, squad: squad.get() });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
   }
 });
 
-// 🛡️ ЗАХИЩЕНА ПОКУПКА СКІНІВ 
 app.post('/api/user/buy_skin', async (req, res) => {
   const { telegram_id, skin_id } = req.body;
   try {
@@ -565,17 +594,23 @@ app.post('/api/user/buy_skin', async (req, res) => {
       user.season_points = Number(user.season_points) - realCost; 
       skins.push(skin_id); 
       user.unlocked_skins = skins; 
-      user.changed('unlocked_skins', true); // 🔥 ФІКС ЗБЕРЕЖЕННЯ В БД
+      user.changed('unlocked_skins', true); 
       user.current_skin = skin_id; 
     }
     await user.save(); 
-    res.json({ user: user.get() });
+    
+    // 🔥 Виправляємо баг з бустами тут
+    const now = new Date();
+    const active_boost = user.boost_until && new Date(user.boost_until) > now;
+    const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
+    const active_daily_x2 = user.daily_x2_until && new Date(user.daily_x2_until) > now;
+
+    res.json({ user: { ...user.get(), active_boost, auto_click, active_daily_x2 } });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
   }
 });
 
-// 🛡️ ЗАХИЩЕНА ПОКУПКА БІЗНЕСІВ
 app.post('/api/user/buy_upgrade', async (req, res) => {
   const { telegram_id, item_id } = req.body;
   try {
@@ -604,13 +639,19 @@ app.post('/api/user/buy_upgrade', async (req, res) => {
     user.changed('businesses', true); 
     user.last_passive_collect = new Date(); 
     await user.save(); 
-    res.json({ user: user.get() });
+    
+    // 🔥 Виправляємо баг з бустами тут
+    const now = new Date();
+    const active_boost = user.boost_until && new Date(user.boost_until) > now;
+    const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
+    const active_daily_x2 = user.daily_x2_until && new Date(user.daily_x2_until) > now;
+
+    res.json({ user: { ...user.get(), active_boost, auto_click, active_daily_x2 } });
   } catch (err) { 
     res.status(500).json({ error: 'Server error' }); 
   }
 });
 
-// 🛡️ ЗАХИЩЕНЕ ОТРИМАННЯ ДОСЯГНЕНЬ
 app.post('/api/user/achievement', async (req, res) => {
   const { telegram_id, achievement_id } = req.body;
   try {
@@ -630,7 +671,7 @@ app.post('/api/user/achievement', async (req, res) => {
     
     achs.push(achievement_id); 
     user.achievements = achs; 
-    user.changed('achievements', true); // 🔥 ФІКС ЗБЕРЕЖЕННЯ В БД
+    user.changed('achievements', true); 
     
     user.season_points = Number(user.season_points) + realReward; 
     user.total_earned = Number(user.total_earned) + realReward; 
@@ -641,13 +682,19 @@ app.post('/api/user/achievement', async (req, res) => {
     }
     user.level = new_level > 10 ? 10 : new_level; 
     await user.save(); 
-    return res.json({ user: user.get(), reward: realReward });
+    
+    // 🔥 Виправляємо баг з бустами тут
+    const now = new Date();
+    const active_boost = user.boost_until && new Date(user.boost_until) > now;
+    const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
+    const active_daily_x2 = user.daily_x2_until && new Date(user.daily_x2_until) > now;
+
+    return res.json({ user: { ...user.get(), active_boost, auto_click, active_daily_x2 }, reward: realReward });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
   }
 });
 
-// 🛡️ ЗАХИСТ ВІД СПАМУ ТА ПРАВИЛЬНА ПЕРЕВІРКА ПІДПИСКИ
 app.post('/api/user/claim_task', async (req, res) => {
   const { telegram_id, task_type } = req.body;
   try {
@@ -677,7 +724,14 @@ app.post('/api/user/claim_task', async (req, res) => {
     user.level = new_level > 10 ? 10 : new_level; 
     
     await user.save(); 
-    return res.json({ user: user.get(), reward });
+    
+    // 🔥 Виправляємо баг з бустами тут
+    const now = new Date();
+    const active_boost = user.boost_until && new Date(user.boost_until) > now;
+    const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
+    const active_daily_x2 = user.daily_x2_until && new Date(user.daily_x2_until) > now;
+
+    return res.json({ user: { ...user.get(), active_boost, auto_click, active_daily_x2 }, reward });
   } catch (err) { 
     res.status(500).json({ error: 'Server error' }); 
   }
@@ -707,8 +761,13 @@ app.post('/api/user/daily', async (req, res) => {
     user.last_daily_claim = new Date(); 
     await user.save(); 
     
-    const active_daily_x2 = user.daily_x2_until && new Date(user.daily_x2_until) > new Date();
-    res.json({ user: { ...user.get(), active_daily_x2 }, reward: rewardMsg });
+    // 🔥 Виправляємо баг з бустами тут (тут раніше перевірявся тільки daily_x2)
+    const now = new Date();
+    const active_boost = user.boost_until && new Date(user.boost_until) > now;
+    const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
+    const active_daily_x2 = user.daily_x2_until && new Date(user.daily_x2_until) > now;
+
+    res.json({ user: { ...user.get(), active_boost, auto_click, active_daily_x2 }, reward: rewardMsg });
   } catch (error) { 
     res.status(500).json({ error: 'Server error' }); 
   }
