@@ -2,6 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 // ==========================================
+// ІМПОРТ ТВОЇХ 5 КАРТИНОК
+// ==========================================
+import duck1 from './assets/duck_1.png';
+import duck2 from './assets/duck_2.png';
+import duck3 from './assets/duck_3.png';
+import duck4 from './assets/duck_4.png';
+import duck5 from './assets/duck_5.png';
+
+// ==========================================
 // КОНСТАНТИ ТА НАЛАШТУВАННЯ
 // ==========================================
 
@@ -39,17 +48,13 @@ const levelNames = [
   "Творець"
 ];
 
+// 🔥 ОСЬ ТУТ МИ РОЗКИДАЛИ 5 КАРТИНОК НА 10 РІВНІВ 🔥
 const LEVEL_SKINS = [
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f986.svg",
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f424.svg",
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f425.svg",
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f426.svg",
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f989.svg",
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f985.svg",
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a2.svg",
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f9a9.svg",
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f99a.svg",
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f409.svg"
+  duck1, duck1, // Рівні 1-2 (Бродяга, Новачок)
+  duck2, duck2, // Рівні 3-4 (Шукач, Хуліган)
+  duck3, duck3, // Рівні 5-6 (Бізнесмен, Бос)
+  duck4, duck4, // Рівні 7-8 (Магнат, Олігарх)
+  duck5, duck5  // Рівні 9-10 (Божество, Творець)
 ];
 
 const getLeague = (lvl) => {
@@ -413,12 +418,10 @@ function App() {
   // ІНШІ ФУНКЦІЇ ТА ДРУЗІ
   // ==========================================
 
-  // 🔥 ОСЬ ЦЕЙ БЛОК ОНОВЛЕНО ДЛЯ СИНХРОНІЗАЦІЇ АВТОКЛІКЕРА 🔥
   const buyUpgrade = async (item, currentCost) => {
     if (points < currentCost) { triggerNotification('error'); return; }
 
     try {
-      // Синхронізуємо баланс із сервером (підтягуємо напрацьоване автоклікером)
       const syncResponse = await axios.post(`${SERVER_URL}/user/init`, {
         telegram_id: userData.telegram_id,
         first_name: userData.first_name,
@@ -429,7 +432,6 @@ function App() {
       setPoints(serverPoints);
       setUserData(syncResponse.data.user);
       
-      // Якщо і після синхронізації не вистачає - стопаємо
       if (serverPoints < currentCost) {
           triggerNotification('error');
           tg.showAlert("Сервер ще не нарахував монети. Спробуй через секунду.");
