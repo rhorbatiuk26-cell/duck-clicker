@@ -196,6 +196,10 @@ if (token) {
     };
     bot.sendMessage(chatId, text, opts);
   });
+  console.log('✅ Телеграм бот успішно запущений!');
+} else {
+  console.log('⚠️ УВАГА: BOT_TOKEN не знайдено.');
+}
 
 // ==========================================
 // ХЕЛПЕРИ
@@ -452,7 +456,6 @@ app.post('/api/user/claim_ref_reward', async (req, res) => {
 
     await user.save();
     
-    // 🔥 Виправляємо баг з бустами тут
     const now = new Date();
     const active_boost = user.boost_until && new Date(user.boost_until) > now;
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
@@ -594,7 +597,6 @@ app.post('/api/squad/join', async (req, res) => {
       await Squad.increment('members_count', { by: 1, where: { username: cleanUsername } }); 
     }
     
-    // 🔥 Виправляємо баг з бустами тут
     const now = new Date();
     const active_boost = user.boost_until && new Date(user.boost_until) > now;
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
@@ -627,7 +629,6 @@ app.post('/api/user/buy_skin', async (req, res) => {
     }
     await user.save(); 
     
-    // 🔥 Виправляємо баг з бустами тут
     const now = new Date();
     const active_boost = user.boost_until && new Date(user.boost_until) > now;
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
@@ -668,7 +669,6 @@ app.post('/api/user/buy_upgrade', async (req, res) => {
     user.last_passive_collect = new Date(); 
     await user.save(); 
     
-    // 🔥 Виправляємо баг з бустами тут
     const now = new Date();
     const active_boost = user.boost_until && new Date(user.boost_until) > now;
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
@@ -711,7 +711,6 @@ app.post('/api/user/achievement', async (req, res) => {
     user.level = new_level > 10 ? 10 : new_level; 
     await user.save(); 
     
-    // 🔥 Виправляємо баг з бустами тут
     const now = new Date();
     const active_boost = user.boost_until && new Date(user.boost_until) > now;
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
@@ -753,7 +752,6 @@ app.post('/api/user/claim_task', async (req, res) => {
     
     await user.save(); 
     
-    // 🔥 Виправляємо баг з бустами тут
     const now = new Date();
     const active_boost = user.boost_until && new Date(user.boost_until) > now;
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
@@ -789,7 +787,6 @@ app.post('/api/user/daily', async (req, res) => {
     user.last_daily_claim = new Date(); 
     await user.save(); 
     
-    // 🔥 Виправляємо баг з бустами тут (тут раніше перевірявся тільки daily_x2)
     const now = new Date();
     const active_boost = user.boost_until && new Date(user.boost_until) > now;
     const auto_click = user.auto_click_until && new Date(user.auto_click_until) > now;
