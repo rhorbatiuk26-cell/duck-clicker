@@ -88,7 +88,7 @@ const User = sequelize.define('User', {
   task_yt_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   task_ig_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
 
-  // 🔥 НОВЕ: Поле для контролю спаму сповіщеннями
+  // Поле для контролю спаму сповіщеннями
   last_notification_sent: { type: DataTypes.DATE, allowNull: true }
 });
 
@@ -228,7 +228,6 @@ const endSeasonAndNotify = async () => {
     
     await sendTelegramMessage(adminId, msg);
     
-    // Обнуляємо прогрес і досягнення на старті нового сезону
     await User.update({ season_points: 0, total_earned: 0, level: 1, energy: MAX_ENERGY, passive_income: 0, businesses: {}, achievements: [] }, { where: {} });
     await Squad.update({ total_points: 0 }, { where: {} });
     return { success: true };
@@ -243,7 +242,7 @@ const endSeasonAndNotify = async () => {
 
 // 1. АВТОМАТИЧНЕ ОБНУЛЕННЯ СЕЗОНУ
 cron.schedule('0 0 1 * *', async () => {
-  console.log('⏳ Починаємо автоматичне обнулення сезону (за розкладом)...');
+  console.log('⏳ Починаємо автоматичне обнулення сезону...');
   try {
     const activeUsers = await User.count({ where: { total_earned: { [Op.gt]: 0 } } });
     if (activeUsers > 0) {
@@ -272,7 +271,7 @@ cron.schedule('0 * * * *', async () => {
           { last_notification_sent: { [Op.lt]: threeHoursAgo } }
         ]
       },
-      limit: 50 // Захист від лімітів Telegram
+      limit: 50 
     });
 
     for (const user of fullEnergyUsers) {
@@ -303,7 +302,7 @@ cron.schedule('0 * * * *', async () => {
 });
 
 // ==========================================
-// ЛОГІКА РОЗРАХУНКУ
+// ЛОГІКА РОЗРАХУНКУ (ВИПРАВЛЕНО БАГ З АВТОКЛІКЕРОМ)
 // ==========================================
 
 const calculateOfflineProgress = async (user) => {
@@ -330,19 +329,35 @@ const calculateOfflineProgress = async (user) => {
     user.last_energy_update = now; 
   }
   
+  // 🔥 НОВА ЛОГІКА: ЧЕСНИЙ РОЗРАХУНОК "МИНУЛОГО" АВТОКЛІКЕРА 🔥
+  const lastCollect = new Date(user.last_passive_collect);
+  const secondsPassedPassive = (now - lastCollect) / 1000;
   let passiveEarned = 0;
-  let currentPassivePerSec = user.passive_income / 3600;
   
-  if (user.auto_click_until && new Date(user.auto_click_until) > now) {
-    const smart_tap_base = (user.level * 2) + Math.floor(currentPassivePerSec * 3);
-    currentPassivePerSec += (smart_tap_base * 5); 
-  }
-  
-  if (currentPassivePerSec > 0) {
-    const secondsPassedPassive = (now - new Date(user.last_passive_collect)) / 1000;
-    const cappedSeconds = Math.min(secondsPassedPassive, MAX_OFFLINE_SECONDS);
-    passiveEarned = Math.floor(cappedSeconds * currentPassivePerSec);
+  if (secondsPassedPassive > 0) {
+    const basePassivePerSec = user.passive_income / 3600;
+    const maxSeconds = Math.min(secondsPassedPassive, MAX_OFFLINE_SECONDS);
     
+    let autoclickSeconds = 0;
+    
+    if (user.auto_click_until && new Date(user.auto_click_until) > lastCollect) {
+      const autoClickEnd = new Date(user.auto_click_until);
+      const effectiveEnd = autoClickEnd < now ? autoClickEnd : now;
+      autoclickSeconds = (effectiveEnd - lastCollect) / 1000;
+      
+      if (autoclickSeconds > maxSeconds) autoclickSeconds = maxSeconds;
+      
+      const smart_tap_base = (user.level * 2) + Math.floor(basePassivePerSec * 3);
+      const boostedPassivePerSec = basePassivePerSec + (smart_tap_base * 5);
+      
+      passiveEarned += Math.floor(autoclickSeconds * boostedPassivePerSec);
+    }
+    
+    let normalSeconds = maxSeconds - autoclickSeconds;
+    if (normalSeconds < 0) normalSeconds = 0;
+    
+    passiveEarned += Math.floor(normalSeconds * basePassivePerSec);
+
     if (passiveEarned > 0) {
       user.season_points = Number(user.season_points) + passiveEarned; 
       user.total_earned = Number(user.total_earned) + passiveEarned; 
@@ -888,7 +903,7 @@ app.post('/api/admin/end_season', async (req, res) => {
   else res.status(500).json({ error: result.error }); 
 });
 
-// 🔥 НОВИЙ ЕНДПОІНТ ДЛЯ МАСОВОЇ РОЗСИЛКИ ВІД АДМІНА 🔥
+// 🔥 ЕНДПОІНТ ДЛЯ МАСОВОЇ РОЗСИЛКИ ВІД АДМІНА 🔥
 app.post('/api/admin/broadcast', async (req, res) => {
   const { message, admin_id } = req.body;
   if (admin_id !== process.env.ADMIN_TELEGRAM_ID) {
