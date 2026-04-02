@@ -151,6 +151,38 @@ if (token) {
     const startParam = match[1] || ''; 
     const finalUrl = startParam ? `${webAppUrl}?start_param=${startParam}` : webAppUrl;
 
+    // 🔥 НОВА ЛОГІКА: МИТТЄВА РЕЄСТРАЦІЯ РЕФЕРАЛА В БОТІ 🔥
+    if (startParam && !startParam.startsWith('squad_')) {
+      try {
+        let existingUser = await User.findByPk(String(chatId));
+        if (!existingUser) { // Тільки якщо це абсолютно новий гравець
+          let startingPoints = 0;
+          if (startParam !== String(chatId)) {
+            startingPoints = 10000;
+            const referrer = await User.findByPk(String(startParam));
+            if (referrer) {
+              referrer.season_points = Number(referrer.season_points) + 10000;
+              referrer.total_earned = Number(referrer.total_earned) + 10000;
+              referrer.referrals_count += 1;
+              await referrer.save();
+            }
+          }
+          await User.create({
+            telegram_id: String(chatId),
+            first_name: msg.from.first_name || 'Гравець',
+            referrer_id: startParam !== String(chatId) ? String(startParam) : null,
+            season_points: startingPoints,
+            total_earned: startingPoints,
+            last_energy_update: new Date(),
+            last_passive_collect: new Date()
+          });
+          console.log(`👤 Новий реферал миттєво зареєстрований: ${chatId}`);
+        }
+      } catch (err) {
+        console.error('Помилка авто-реєстрації реферала:', err);
+      }
+    }
+
     const text = `🦆 <b>Вітаємо у Gold Duck!</b>\n\nТисни на качку, збирай золоті монети, запрошуй друзів та змагайся з іншими гравцями!\n\nНатискай кнопку нижче, щоб почати гру 👇`;
 
     const opts = {
@@ -164,10 +196,6 @@ if (token) {
     };
     bot.sendMessage(chatId, text, opts);
   });
-  console.log('✅ Телеграм бот успішно запущений!');
-} else {
-  console.log('⚠️ УВАГА: BOT_TOKEN не знайдено.');
-}
 
 // ==========================================
 // ХЕЛПЕРИ
