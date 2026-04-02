@@ -86,7 +86,10 @@ const User = sequelize.define('User', {
   task_tg_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   task_x_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
   task_yt_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
-  task_ig_claimed: { type: DataTypes.BOOLEAN, defaultValue: false }
+  task_ig_claimed: { type: DataTypes.BOOLEAN, defaultValue: false },
+
+  // 🔥 НОВЕ: Поле для контролю спаму сповіщеннями
+  last_notification_sent: { type: DataTypes.DATE, allowNull: true }
 });
 
 Squad.hasMany(User, { foreignKey: 'squad_id' });
@@ -130,7 +133,7 @@ const SKINS_SERVER = {
 };
 
 // ==========================================
-// 🔥 ТЕЛЕГРАМ БОТ
+// 🔥 ТЕЛЕГРАМ БОТ ТА МИТТЄВА РЕФЕРАЛКА
 // ==========================================
 const token = process.env.BOT_TOKEN;
 
@@ -151,11 +154,10 @@ if (token) {
     const startParam = match[1] || ''; 
     const finalUrl = startParam ? `${webAppUrl}?start_param=${startParam}` : webAppUrl;
 
-    // 🔥 НОВА ЛОГІКА: МИТТЄВА РЕЄСТРАЦІЯ РЕФЕРАЛА В БОТІ 🔥
     if (startParam && !startParam.startsWith('squad_')) {
       try {
         let existingUser = await User.findByPk(String(chatId));
-        if (!existingUser) { // Тільки якщо це абсолютно новий гравець
+        if (!existingUser) { 
           let startingPoints = 0;
           if (startParam !== String(chatId)) {
             startingPoints = 10000;
@@ -176,7 +178,6 @@ if (token) {
             last_energy_update: new Date(),
             last_passive_collect: new Date()
           });
-          console.log(`👤 Новий реферал миттєво зареєстрований: ${chatId}`);
         }
       } catch (err) {
         console.error('Помилка авто-реєстрації реферала:', err);
@@ -237,29 +238,73 @@ const endSeasonAndNotify = async () => {
 };
 
 // ==========================================
-// 🔥 АВТОМАТИЧНЕ ОБНУЛЕННЯ СЕЗОНУ (CRON)
+// 🔥 АВТОМАТИЗАЦІЯ: ТАЙМЕРИ CRON
 // ==========================================
+
+// 1. АВТОМАТИЧНЕ ОБНУЛЕННЯ СЕЗОНУ
 cron.schedule('0 0 1 * *', async () => {
   console.log('⏳ Починаємо автоматичне обнулення сезону (за розкладом)...');
   try {
     const activeUsers = await User.count({ where: { total_earned: { [Op.gt]: 0 } } });
     if (activeUsers > 0) {
       const result = await endSeasonAndNotify();
-      if (result.success) {
-        console.log('✅ Новий сезон успішно автоматично стартував!');
-      } else {
-        console.error('❌ Помилка під час авто-обнулення сезону:', result.error);
-      }
-    } else {
-      console.log('ℹ️ Активних гравців немає, обнулення пропущено.');
+      if (result.success) console.log('✅ Новий сезон успішно автоматично стартував!');
     }
   } catch (err) {
     console.error('❌ Критична помилка авто-обнулення:', err);
   }
-}, {
-  scheduled: true,
-  timezone: "Europe/Kyiv" 
+}, { scheduled: true, timezone: "Europe/Kyiv" });
+
+// 2. СИСТЕМА СПОВІЩЕНЬ (RETENTION) - КОЖНУ ГОДИНУ
+cron.schedule('0 * * * *', async () => { 
+  console.log('📡 Перевірка сповіщень для гравців...');
+  const now = new Date();
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+
+  try {
+    const fullEnergyUsers = await User.findAll({
+      where: {
+        energy: { [Op.lt]: MAX_ENERGY },
+        last_energy_update: { [Op.lt]: threeHoursAgo },
+        [Op.or]: [
+          { last_notification_sent: null },
+          { last_notification_sent: { [Op.lt]: threeHoursAgo } }
+        ]
+      },
+      limit: 50 // Захист від лімітів Telegram
+    });
+
+    for (const user of fullEnergyUsers) {
+      await sendTelegramMessage(user.telegram_id, "🔋 <b>Твоя енергія відновлена!</b>\nКачка зачекалася, пора збирати золоті монети! 🦆💰");
+      user.last_notification_sent = now;
+      await user.save();
+    }
+
+    const inactiveUsers = await User.findAll({
+      where: {
+        updatedAt: { [Op.lt]: oneDayAgo },
+        [Op.or]: [
+          { last_notification_sent: null },
+          { last_notification_sent: { [Op.lt]: oneDayAgo } }
+        ]
+      },
+      limit: 50
+    });
+
+    for (const user of inactiveUsers) {
+      await sendTelegramMessage(user.telegram_id, "💤 <b>Твій бізнес стоїть!</b>\nГравці обходять тебе в лідерборді. Заходь у Gold Duck і покажи, хто тут головний магнат! 🦆🏆");
+      user.last_notification_sent = now;
+      await user.save();
+    }
+  } catch (err) {
+    console.error('Помилка системи сповіщень:', err);
+  }
 });
+
+// ==========================================
+// ЛОГІКА РОЗРАХУНКУ
+// ==========================================
 
 const calculateOfflineProgress = async (user) => {
   const now = new Date();
@@ -841,6 +886,26 @@ app.post('/api/admin/end_season', async (req, res) => {
   const result = await endSeasonAndNotify(); 
   if (result.success) res.json({ success: true }); 
   else res.status(500).json({ error: result.error }); 
+});
+
+// 🔥 НОВИЙ ЕНДПОІНТ ДЛЯ МАСОВОЇ РОЗСИЛКИ ВІД АДМІНА 🔥
+app.post('/api/admin/broadcast', async (req, res) => {
+  const { message, admin_id } = req.body;
+  if (admin_id !== process.env.ADMIN_TELEGRAM_ID) {
+    return res.status(403).json({ error: "Доступ заборонено" });
+  }
+  try {
+    const users = await User.findAll({ attributes: ['telegram_id'] });
+    let count = 0;
+    for (const user of users) {
+      await new Promise(resolve => setTimeout(resolve, 50)); 
+      await sendTelegramMessage(user.telegram_id, `📢 <b>ПОВІДОМЛЕННЯ ВІД GOLD DUCK</b>\n\n${message}`);
+      count++;
+    }
+    res.json({ success: true, sent_to: count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/leaderboard', async (req, res) => {
