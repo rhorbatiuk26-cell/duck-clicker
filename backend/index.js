@@ -235,7 +235,6 @@ const endSeasonAndNotify = async () => {
     return { error: "Внутрішня помилка" }; 
   }
 };
-
 // ==========================================
 // 🔥 АВТОМАТИЗАЦІЯ: ТАЙМЕРИ CRON
 // ==========================================
@@ -302,7 +301,7 @@ cron.schedule('0 * * * *', async () => {
 });
 
 // ==========================================
-// ЛОГІКА РОЗРАХУНКУ (ВИПРАВЛЕНО БАГ З АВТОКЛІКЕРОМ)
+// ЛОГІКА РОЗРАХУНКУ
 // ==========================================
 
 const calculateOfflineProgress = async (user) => {
@@ -329,7 +328,7 @@ const calculateOfflineProgress = async (user) => {
     user.last_energy_update = now; 
   }
   
-  // 🔥 НОВА ЛОГІКА: ЧЕСНИЙ РОЗРАХУНОК "МИНУЛОГО" АВТОКЛІКЕРА 🔥
+  // 🔥 ЧЕСНИЙ РОЗРАХУНОК "МИНУЛОГО" АВТОКЛІКЕРА 🔥
   const lastCollect = new Date(user.last_passive_collect);
   const secondsPassedPassive = (now - lastCollect) / 1000;
   let passiveEarned = 0;
@@ -404,7 +403,6 @@ const checkTelegramSubscription = (userId) => {
     }).on('error', () => resolve(false));
   });
 };
-
 // ==========================================
 // ЕНДПОІНТИ
 // ==========================================
@@ -823,6 +821,7 @@ app.post('/api/user/claim_task', async (req, res) => {
   }
 });
 
+// 🔥 ВИПРАВЛЕНО ЦИКЛ ДЕЙЛІКІВ (ПІСЛЯ 7 ДНЯ ЗНОВУ 1)
 app.post('/api/user/daily', async (req, res) => {
   const { telegram_id } = req.body;
   try {
@@ -830,7 +829,11 @@ app.post('/api/user/daily', async (req, res) => {
     const progress = await calculateOfflineProgress(user);
     if (!progress.dailyAvailable) return res.status(400).json({ error: 'Вже отримано' });
     
-    user.daily_streak = Math.min((user.daily_streak || 0) + 1, 7);
+    if (user.daily_streak >= 7) {
+      user.daily_streak = 1; 
+    } else {
+      user.daily_streak = (user.daily_streak || 0) + 1; 
+    }
     
     let rewardMsg = '';
     if (user.daily_streak === 7) {
@@ -903,7 +906,6 @@ app.post('/api/admin/end_season', async (req, res) => {
   else res.status(500).json({ error: result.error }); 
 });
 
-// 🔥 ЕНДПОІНТ ДЛЯ МАСОВОЇ РОЗСИЛКИ ВІД АДМІНА 🔥
 app.post('/api/admin/broadcast', async (req, res) => {
   const { message, admin_id } = req.body;
   if (admin_id !== process.env.ADMIN_TELEGRAM_ID) {
