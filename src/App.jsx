@@ -846,7 +846,7 @@ function App() {
               )}
             </div>
 
-            <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🔄 Бусти (За відео)</h2>
+            <h2 className="text-lg font-black text-yellow-400 mb-2 ml-2">🔄 Бусти (V2)</h2>
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl flex flex-col items-center text-center gap-2">
                 <div className="text-2xl">🔋</div><h3 className="font-bold text-xs text-white">Енергія</h3><p className="text-[10px] text-gray-400">{userData.ad_energy_left}/3</p>
